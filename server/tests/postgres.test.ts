@@ -26,7 +26,7 @@ describe.skipIf(!databaseUrl)('integración PostgreSQL (base de pruebas desechab
     expect(again.toBeCreated).toHaveLength(0)
     expect(again.toBeAdded).toHaveLength(0)
 
-    const app = createApp({ auth, config, checkDatabase: async () => { await database.query('SELECT 1') } })
+    const app = createApp({ auth, config, database, checkDatabase: async () => { await database.query('SELECT 1') } })
     const email = `test-${crypto.randomUUID()}@example.com`
     const request = (path: string, body: unknown, cookie = '') => app.request(`http://localhost:3000${path}`, {
       method: 'POST',

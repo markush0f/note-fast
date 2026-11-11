@@ -14,13 +14,25 @@ const config = loadConfig({
 function setup() {
   const auth = createAuth(config, memoryAdapter({ user: [], account: [], session: [], verification: [], rateLimit: [] }))
   const checkDatabase = vi.fn(async () => {})
-  const app = createApp({ auth, checkDatabase, config })
+  const workspaces = new Map<string, unknown>()
+  const database = { query: vi.fn(async (sql: string, params: unknown[] = []) => {
+    if (sql.startsWith('SELECT payload')) {
+      const payload = workspaces.get(String(params[0]))
+      return { rows: payload === undefined ? [] : [{ payload }] }
+    }
+    if (sql.includes('INSERT INTO user_workspace')) {
+      workspaces.set(String(params[0]), JSON.parse(String(params[1])))
+      return { rows: [] }
+    }
+    return { rows: [] }
+  }) }
+  const app = createApp({ auth, checkDatabase, config, database: database as unknown as import('pg').Pool })
   const post = (path: string, body: unknown, cookie?: string, origin = config.origins[0]) => app.request(`http://localhost:3000${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Origin: origin, ...(cookie ? { Cookie: cookie } : {}) },
     body: JSON.stringify(body),
   })
-  return { app, post, checkDatabase }
+  return { app, post, checkDatabase, workspaces }
 }
 
 function cookies(response: Response) {
@@ -74,6 +86,23 @@ describe('API multiusuario', () => {
     const logout = await api.post('/api/auth/sign-out', {}, cookies(signin))
     expect(logout.status).toBe(200)
     expect((await api.app.request('/api/me', { headers: { Cookie: cookies(signin) } })).status).toBe(401)
+  })
+
+  it('guarda y devuelve el cuaderno solo para su propietario', async () => {
+    const signup = await api.post('/api/auth/sign-up/email', account)
+    const cookie = cookies(signup)
+    const workspace = { version: 2, notes: [], folders: [], theme: 'dark' }
+    const save = await api.app.request('http://localhost:3000/api/workspace', {
+      method: 'PUT', headers: { Origin: config.origins[0], Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify(workspace),
+    })
+    expect(save.status).toBe(200)
+    expect((await (await api.app.request('http://localhost:3000/api/workspace', { headers: { Cookie: cookie } })).json()).workspace).toEqual(workspace)
+    expect((await api.app.request('http://localhost:3000/api/workspace')).status).toBe(401)
+    const otherSignup = await api.post('/api/auth/sign-up/email', { ...account, name: 'Luis', email: 'luis@example.com' })
+    const otherWorkspace = await api.app.request('http://localhost:3000/api/workspace', { headers: { Cookie: cookies(otherSignup) } })
+    expect((await otherWorkspace.json()).workspace).toBeNull()
+    expect((await api.app.request('http://localhost:3000/api/workspace', { method: 'PUT', headers: { Origin: config.origins[0], 'Content-Type': 'application/json' }, body: JSON.stringify(workspace) })).status).toBe(401)
+    expect((await api.app.request('http://localhost:3000/api/workspace', { method: 'PUT', headers: { Origin: config.origins[0], Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 99 }) })).status).toBe(400)
   })
 
   it('rechaza contraseñas cortas y credenciales incorrectas', async () => {

@@ -10,7 +10,14 @@ try {
   const migrations = await getMigrations(auth.options)
   console.info(`Tablas nuevas: ${migrations.toBeCreated.length}; tablas a actualizar: ${migrations.toBeAdded.length}`)
   await migrations.runMigrations()
-  console.info('Esquema de autenticación actualizado.')
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS user_workspace (
+      user_id TEXT PRIMARY KEY REFERENCES "user"(id) ON DELETE CASCADE,
+      payload JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+  console.info('Esquema de autenticación y cuadernos actualizado.')
 } finally {
   await database.end()
 }

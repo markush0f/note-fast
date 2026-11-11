@@ -17,6 +17,7 @@ try {
 const app = createApp({
   auth: createAuth(config, database),
   config,
+  database,
   checkDatabase: async () => { await database.query('SELECT 1') },
 })
 
