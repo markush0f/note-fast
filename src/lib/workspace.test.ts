@@ -5,6 +5,7 @@ import {
   deleteFolder,
   folderPath,
   migrateWorkspace,
+  moveNote,
   type Workspace,
 } from "./workspace";
 
@@ -17,6 +18,57 @@ describe("folder workspace", () => {
     expect(child.parentId).toBe(parent.id);
     expect(createNote(child.id).folderId).toBe(child.id);
     expect(folderPath([child, parent], child.id)).toEqual([parent, child]);
+  });
+  it("moves notes into nested folders without changing their content or identity", () => {
+    const parent = createFolder("Proyectos");
+    const child = createFolder("ntbk", parent.id);
+    const note = {
+      ...createNote(),
+      title: "Plan",
+      content: "<p>Idea</p>",
+      favorite: true,
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    };
+    const other = createNote(parent.id);
+    const workspace: Workspace = {
+      version: 2,
+      folders: [parent, child],
+      notes: [note, other],
+    };
+    const moved = moveNote(workspace, note.id, child.id);
+    expect(moved.notes[0]).toEqual({
+      ...note,
+      folderId: child.id,
+      updatedAt: expect.any(String),
+    });
+    expect(Date.parse(moved.notes[0].updatedAt)).toBeGreaterThan(
+      Date.parse(note.updatedAt),
+    );
+    expect(moved.notes[1]).toBe(other);
+    expect(moved.folders).toBe(workspace.folders);
+    expect(workspace.notes[0]).toBe(note);
+    expect(note.folderId).toBeNull();
+  });
+  it("moves notes between folders and back to the root", () => {
+    const a = createFolder("A");
+    const b = createFolder("B");
+    const note = createNote(a.id);
+    const workspace: Workspace = { version: 2, folders: [a, b], notes: [note] };
+    const moved = moveNote(workspace, note.id, b.id);
+    expect(moved.notes[0].folderId).toBe(b.id);
+    expect(moveNote(moved, note.id, null).notes[0].folderId).toBeNull();
+  });
+  it("ignores missing notes, missing targets and drops in the current folder", () => {
+    const folder = createFolder("A");
+    const note = createNote(folder.id);
+    const workspace: Workspace = {
+      version: 2,
+      folders: [folder],
+      notes: [note],
+    };
+    expect(moveNote(workspace, "missing", null)).toBe(workspace);
+    expect(moveNote(workspace, note.id, "missing")).toBe(workspace);
+    expect(moveNote(workspace, note.id, folder.id)).toBe(workspace);
   });
   it("deletes a subtree and its files without touching siblings or root files", () => {
     const root = createFolder("Proyectos");

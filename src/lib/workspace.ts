@@ -97,6 +97,28 @@ export function folderPath(folders: Folder[], id: string | null): Folder[] {
   return path;
 }
 
+export function moveNote(
+  workspace: Workspace,
+  noteId: string,
+  folderId: string | null,
+): Workspace {
+  if (
+    folderId !== null &&
+    !workspace.folders.some((folder) => folder.id === folderId)
+  )
+    return workspace;
+  const note = workspace.notes.find((item) => item.id === noteId);
+  if (!note || note.folderId === folderId) return workspace;
+  return {
+    ...workspace,
+    notes: workspace.notes.map((item) =>
+      item.id === noteId
+        ? { ...item, folderId, updatedAt: new Date().toISOString() }
+        : item,
+    ),
+  };
+}
+
 export function deleteFolder(workspace: Workspace, id: string): Workspace {
   const removed = new Set([id]);
   let changed = true;
