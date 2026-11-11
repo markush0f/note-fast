@@ -18,12 +18,13 @@ describe("IndexedDB persistence", () => {
     expect(await loadWorkspace()).toEqual(empty());
   });
   it("roundtrips nested folders, notes, edits and deletion", async () => {
-    const parent = createFolder("Proyectos");
+    const parent = { ...createFolder("Proyectos"), icon: "work" as const };
     const child = createFolder("ntbk", parent.id);
     const note = {
       ...createNote(child.id),
       title: "Mi nota",
       content: "<p>Hola</p>",
+      icon: "book" as const,
     };
     const workspace: Workspace = {
       version: 2,

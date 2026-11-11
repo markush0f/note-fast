@@ -1,8 +1,11 @@
+import type { ItemIconId } from "./item-icons";
+
 export interface Note {
   id: string;
   title: string;
   content: string;
   folderId: string | null;
+  icon?: ItemIconId;
   favorite: boolean;
   createdAt: string;
   updatedAt: string;

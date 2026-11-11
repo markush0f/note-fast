@@ -1,9 +1,16 @@
 import type { Note } from "./notes";
+import {
+  isItemIconId,
+  normalizeItemIcon,
+  type ItemIconId,
+  type ItemTarget,
+} from "./item-icons";
 
 export interface Folder {
   id: string;
   name: string;
   parentId: string | null;
+  icon?: ItemIconId;
 }
 export interface Workspace {
   version: 2;
@@ -75,12 +82,33 @@ export function migrateWorkspace(value: unknown): Workspace | undefined {
   return {
     version: 2,
     notes: notes.map((note) => ({
-      ...note,
+      ...normalizeItemIcon(note),
       folderId:
         note.folderId && folderIds.has(note.folderId) ? note.folderId : null,
     })),
-    folders,
+    folders: folders.map(normalizeItemIcon),
   };
+}
+
+export function setItemIcon(
+  workspace: Workspace,
+  target: ItemTarget,
+  icon: ItemIconId | null,
+): Workspace {
+  if (icon !== null && !isItemIconId(icon)) return workspace;
+  const items = target.kind === "note" ? workspace.notes : workspace.folders;
+  const item = items.find((entry) => entry.id === target.id);
+  if (!item || item.icon === (icon ?? undefined)) return workspace;
+  const update = <T extends { id: string; icon?: ItemIconId }>(entry: T): T => {
+    if (entry.id !== target.id) return entry;
+    const updated = { ...entry };
+    if (icon === null) delete updated.icon;
+    else updated.icon = icon;
+    return updated;
+  };
+  return target.kind === "note"
+    ? { ...workspace, notes: workspace.notes.map(update) }
+    : { ...workspace, folders: workspace.folders.map(update) };
 }
 
 export function folderPath(folders: Folder[], id: string | null): Folder[] {
