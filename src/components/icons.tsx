@@ -39,6 +39,8 @@ import {
   MediaImage as MediaImageIcon,
   Bookmark as BookmarkIcon,
   Palette as PaletteIcon,
+  Position as PositionIcon,
+  Drag as DragIcon,
 } from "iconoir-react";
 
 export type IconProps = Omit<SVGProps<SVGSVGElement>, "ref"> & {
@@ -100,3 +102,5 @@ export const Globe = icon(GlobeIcon);
 export const MediaImage = icon(MediaImageIcon);
 export const Bookmark = icon(BookmarkIcon);
 export const Palette = icon(PaletteIcon);
+export const Position = icon(PositionIcon);
+export const Drag = icon(DragIcon);

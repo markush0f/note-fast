@@ -38,6 +38,7 @@ import FileExplorer from "./components/FileExplorer";
 import Dialog from "./components/Dialog";
 import IconPicker from "./components/IconPicker";
 import type { ItemTarget } from "./lib/item-icons";
+import { DEFAULT_TOOLBAR_POSITION } from "./lib/editor-layout";
 
 const NoteEditor = lazy(() => import("./components/NoteEditor"));
 
@@ -505,33 +506,26 @@ export default function App() {
           )}
         </header>
         {selected ? (
-          <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
-            <article className="mx-auto w-full max-w-190 px-6 pt-6 pb-15 min-[651px]:px-8 min-[651px]:pt-8 min-[651px]:pb-18 min-[901px]:px-12 min-[901px]:pt-11 min-[901px]:pb-25">
-              <input
-                key={`title-${selected.id}`}
-                className="block w-full bg-transparent p-0 text-[28px] leading-snug font-semibold tracking-tight outline-none placeholder:text-stone-400 min-[651px]:text-3xl"
-                aria-label="Título de la nota"
-                placeholder="Sin título"
-                value={selected.title}
-                onChange={(event) =>
-                  updateNote(selected.id, { title: event.target.value })
-                }
-              />
-              <Suspense
-                fallback={
-                  <p className="mt-7 text-[13px] text-muted">
-                    Cargando editor…
-                  </p>
-                }
-              >
-                <NoteEditor
-                  key={selected.id}
-                  note={selected}
-                  onChange={(content) => updateNote(selected.id, { content })}
-                />
-              </Suspense>
-            </article>
-          </div>
+          <Suspense
+            fallback={
+              <p className="flex-1 p-6 text-[13px] text-muted">
+                Cargando editor…
+              </p>
+            }
+          >
+            <NoteEditor
+              key={selected.id}
+              note={selected}
+              onChange={(content) => updateNote(selected.id, { content })}
+              onTitleChange={(title) => updateNote(selected.id, { title })}
+              toolbarPosition={
+                workspace.toolbarPosition ?? DEFAULT_TOOLBAR_POSITION
+              }
+              onToolbarPositionChange={(toolbarPosition) =>
+                setWorkspace((previous) => ({ ...previous, toolbarPosition }))
+              }
+            />
+          </Suspense>
         ) : (
           <div className="grid flex-1 place-content-center p-6">
             <Button variant="primary" onClick={() => addNote()}>

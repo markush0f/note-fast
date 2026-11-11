@@ -1,26 +1,12 @@
-import { useState } from "react";
-import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
+import { useRef } from "react";
+import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
-import {
-  Bold,
-  Italic,
-  Underline,
-  TextSize as Heading2,
-  List,
-  NumberedListLeft as ListOrdered,
-  TaskList as ListTodo,
-  Quote,
-  Code as Code2,
-  Undo as Undo2,
-  Redo as Redo2,
-  MoreHoriz as Ellipsis,
-  type IconComponent,
-} from "./icons";
 import type { Note } from "../lib/notes";
-import { Button } from "./ui";
+import type { ToolbarPosition } from "../lib/editor-layout";
+import EditorToolbar from "./EditorToolbar";
 
 const editorClasses = [
   "min-h-75 text-[15px] leading-[1.8] text-stone-600 outline-none [overflow-wrap:anywhere]",
@@ -40,16 +26,23 @@ const editorClasses = [
 interface Props {
   note: Note;
   onChange: (content: string) => void;
+  onTitleChange: (title: string) => void;
+  toolbarPosition: ToolbarPosition;
+  onToolbarPositionChange: (position: ToolbarPosition) => void;
 }
 
-export default function NoteEditor({ note, onChange }: Props) {
-  const [expanded, setExpanded] = useState(false);
+export default function NoteEditor({
+  note,
+  onChange,
+  onTitleChange,
+  toolbarPosition,
+  onToolbarPositionChange,
+}: Props) {
+  const boundaryRef = useRef<HTMLDivElement>(null);
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ link: { openOnClick: false } }),
-      Placeholder.configure({
-        placeholder: "Escribe…",
-      }),
+      Placeholder.configure({ placeholder: "Escribe…" }),
       TaskList,
       TaskItem.configure({ nested: true }),
     ],
@@ -64,141 +57,40 @@ export default function NoteEditor({ note, onChange }: Props) {
       },
     },
   });
-  const state = useEditorState({
-    editor,
-    selector: ({ editor }) =>
-      editor
-        ? {
-            bold: editor.isActive("bold"),
-            italic: editor.isActive("italic"),
-            underline: editor.isActive("underline"),
-            heading: editor.isActive("heading", { level: 2 }),
-            bullet: editor.isActive("bulletList"),
-            ordered: editor.isActive("orderedList"),
-            task: editor.isActive("taskList"),
-            quote: editor.isActive("blockquote"),
-            code: editor.isActive("codeBlock"),
-            undo: editor.can().undo(),
-            redo: editor.can().redo(),
-          }
-        : null,
-  });
 
-  if (!editor || !state) return null;
-  const tools: {
-    label: string;
-    icon: IconComponent;
-    active?: boolean;
-    disabled?: boolean;
-    action: () => void;
-  }[] = [
-    {
-      label: "Negrita (Ctrl+B)",
-      icon: Bold,
-      active: state.bold,
-      action: () => editor.chain().focus().toggleBold().run(),
-    },
-    {
-      label: "Cursiva (Ctrl+I)",
-      icon: Italic,
-      active: state.italic,
-      action: () => editor.chain().focus().toggleItalic().run(),
-    },
-    {
-      label: "Subrayado (Ctrl+U)",
-      icon: Underline,
-      active: state.underline,
-      action: () => editor.chain().focus().toggleUnderline().run(),
-    },
-    {
-      label: "Encabezado",
-      icon: Heading2,
-      active: state.heading,
-      action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
-    },
-    {
-      label: "Lista con viñetas",
-      icon: List,
-      active: state.bullet,
-      action: () => editor.chain().focus().toggleBulletList().run(),
-    },
-    {
-      label: "Lista numerada",
-      icon: ListOrdered,
-      active: state.ordered,
-      action: () => editor.chain().focus().toggleOrderedList().run(),
-    },
-    {
-      label: "Lista de tareas",
-      icon: ListTodo,
-      active: state.task,
-      action: () => editor.chain().focus().toggleTaskList().run(),
-    },
-    {
-      label: "Cita",
-      icon: Quote,
-      active: state.quote,
-      action: () => editor.chain().focus().toggleBlockquote().run(),
-    },
-    {
-      label: "Bloque de código",
-      icon: Code2,
-      active: state.code,
-      action: () => editor.chain().focus().toggleCodeBlock().run(),
-    },
-    {
-      label: "Deshacer (Ctrl+Z)",
-      icon: Undo2,
-      disabled: !state.undo,
-      action: () => editor.chain().focus().undo().run(),
-    },
-    {
-      label: "Rehacer (Ctrl+Shift+Z)",
-      icon: Redo2,
-      disabled: !state.redo,
-      action: () => editor.chain().focus().redo().run(),
-    },
-  ];
+  if (!editor) return null;
+  const bottom = toolbarPosition.startsWith("bottom");
+  const right = toolbarPosition.endsWith("right");
   return (
-    <>
+    <div
+      ref={boundaryRef}
+      className="relative isolate flex min-h-0 flex-1 flex-col"
+    >
       <div
-        className="mt-4.5 mb-6 flex flex-wrap items-center gap-0.5"
-        role="toolbar"
-        aria-label="Formato de texto"
+        className={`flex shrink-0 px-3 py-3 min-[651px]:px-5 ${bottom ? "order-2" : "order-0"} ${right ? "justify-end" : "justify-start"}`}
       >
-        {tools
-          .filter(
-            (tool) =>
-              expanded ||
-              [Bold, Italic, Heading2, List].some((icon) => icon === tool.icon),
-          )
-          .map(({ label, icon: Icon, active, disabled, action }) => (
-            <Button
-              key={label}
-              variant="icon"
-              aria-label={label}
-              title={label}
-              aria-pressed={active}
-              disabled={disabled}
-              onClick={action}
-            >
-              <Icon size={17} />
-            </Button>
-          ))}
-        <Button
-          variant="icon"
-          aria-pressed={expanded}
-          aria-label={
-            expanded ? "Menos opciones de formato" : "Más opciones de formato"
-          }
-          title={expanded ? "Menos opciones" : "Más opciones"}
-          aria-expanded={expanded}
-          onClick={() => setExpanded((value) => !value)}
-        >
-          <Ellipsis size={17} />
-        </Button>
+        <EditorToolbar
+          editor={editor}
+          boundaryRef={boundaryRef}
+          position={toolbarPosition}
+          onPositionChange={onToolbarPositionChange}
+        />
       </div>
-      <EditorContent editor={editor} />
-    </>
+      <div
+        className="order-1 min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]"
+        data-document-scroll
+      >
+        <article className="mx-auto w-full max-w-190 px-6 pt-6 pb-15 min-[651px]:px-8 min-[651px]:pt-8 min-[651px]:pb-18 min-[901px]:px-12 min-[901px]:pt-11 min-[901px]:pb-25">
+          <input
+            className="block w-full bg-transparent p-0 text-[28px] leading-snug font-semibold tracking-tight outline-none placeholder:text-stone-400 min-[651px]:text-3xl"
+            aria-label="Título de la nota"
+            placeholder="Sin título"
+            value={note.title}
+            onChange={(event) => onTitleChange(event.target.value)}
+          />
+          <EditorContent editor={editor} className="mt-6" />
+        </article>
+      </div>
+    </div>
   );
 }
