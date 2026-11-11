@@ -1,6 +1,6 @@
 # ntbk
 
-Un cuaderno local, sin cuentas ni servicios externos. Interfaz en español, adaptable a escritorio y móvil.
+Un cuaderno local. Interfaz en español, adaptable a escritorio y móvil. La aplicación actual no requiere cuentas ni servicios externos; el backend multiusuario opcional está en desarrollo y todavía no está conectado a la interfaz.
 
 ## Stack
 
@@ -32,6 +32,28 @@ bun run preview
 ```
 
 Si Bun no está en el PATH, puedes usar `npx --yes bun@1.3.13 install` y `npx --yes bun@1.3.13 run dev` para la versión web.
+
+## Backend multiusuario (primera fase)
+
+`server/` contiene una API independiente con **Bun + Hono + PostgreSQL + Better Auth**: registro, inicio/cierre de sesión, perfil autenticado y comprobaciones de disponibilidad. Incluye configuración de desarrollo de PostgreSQL en `compose.yaml`.
+
+### Arrancar todo con Docker
+
+Con Docker Desktop abierto, desde la raíz del proyecto:
+
+```sh
+docker compose up --build -d
+```
+
+Abre **http://127.0.0.1:1420**. Compose arranca PostgreSQL, genera y conserva el secreto de autenticación, aplica las migraciones y levanta backend y frontend. No necesitas crear un `.env` ni instalar Bun para esta opción.
+
+- Estado: `docker compose ps -a`
+- Logs: `docker compose logs -f backend frontend`
+- Detener conservando los datos: `docker compose down`
+
+Los cambios de código requieren repetir el comando con `--build`. **`docker compose down -v` elimina las cuentas y el secreto guardados**, no lo uses para detener la aplicación normalmente.
+
+Consulta **[server/README.md](server/README.md)** para más detalles, desarrollo sin Docker y pruebas de la API. Las notas siguen siendo locales; no hay todavía conexión del frontend con las cuentas, sincronización ni integración con Telegram.
 
 ## Aplicación nativa
 
