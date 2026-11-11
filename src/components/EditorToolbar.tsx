@@ -17,7 +17,11 @@ import {
   Check,
   type IconComponent,
 } from "./icons";
-import { Button, iconButtonClass } from "./ui";
+import { Button } from "./ui";
+import Tooltip from "./Tooltip";
+import FontSizeControl from "./FontSizeControl";
+import ToolbarPopover from "./ToolbarPopover";
+import { formatShortcut } from "../lib/shortcuts";
 import {
   TOOLBAR_POSITIONS,
   getToolbarPlacementCorner,
@@ -40,6 +44,11 @@ const cornerPreview: Record<ToolbarPosition, string> = {
   "bottom-right": "bottom-0.5 right-0.5",
 };
 
+const railButton =
+  "inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-muted hover:bg-hover hover:text-ink aria-pressed:bg-primary aria-pressed:text-on-primary focus-visible:outline-2 focus-visible:outline-strong disabled:cursor-default disabled:opacity-30";
+
+type Menu = "size" | "more" | "position";
+
 export default function EditorToolbar({
   editor,
   placement,
@@ -47,12 +56,12 @@ export default function EditorToolbar({
   dragHandle,
   dragging,
 }: Props) {
-  const [expanded, setExpanded] = useState(false);
-  const menuRef = useRef<HTMLDetailsElement>(null);
-  const triggerRef = useRef<HTMLElement>(null);
+  const [menu, setMenu] = useState<Menu | null>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLButtonElement>(null);
+  const positionRef = useRef<HTMLButtonElement>(null);
   const position = getToolbarPlacementCorner(placement);
-  const bottom = position.startsWith("bottom");
-  const right = position.endsWith("right");
+  const align = position.endsWith("right") ? "left" : "right";
   const state = useEditorState({
     editor,
     selector: ({ editor }) => ({
@@ -71,187 +80,283 @@ export default function EditorToolbar({
   });
 
   useEffect(() => {
+    if (dragging) setMenu(null);
+  }, [dragging]);
+
+  useEffect(() => {
+    if (!menu) return;
     const closeOutside = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (barRef.current?.contains(target)) return;
       if (
-        event.target instanceof Node &&
-        !menuRef.current?.contains(event.target) &&
-        menuRef.current
+        target instanceof Element &&
+        target.closest("[data-toolbar-popover]")
       )
-        menuRef.current.open = false;
+        return;
+      setMenu(null);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const current = menu;
+      setMenu(null);
+      if (current === "more") moreRef.current?.focus();
+      if (current === "position") positionRef.current?.focus();
     };
     document.addEventListener("pointerdown", closeOutside);
-    return () => document.removeEventListener("pointerdown", closeOutside);
-  }, []);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menu]);
 
-  const closeMenu = () => {
-    if (menuRef.current) menuRef.current.open = false;
-    triggerRef.current?.focus();
-  };
   const tools: {
     label: string;
+    shortcut?: string;
     icon: IconComponent;
     active?: boolean;
     disabled?: boolean;
-    basic?: boolean;
+    primary?: boolean;
     action: () => void;
   }[] = [
     {
-      label: "Negrita (Ctrl+B)",
+      label: "Negrita",
+      shortcut: "Mod+B",
       icon: Bold,
       active: state.bold,
-      basic: true,
+      primary: true,
       action: () => editor.chain().focus().toggleBold().run(),
     },
     {
-      label: "Cursiva (Ctrl+I)",
+      label: "Cursiva",
+      shortcut: "Mod+I",
       icon: Italic,
       active: state.italic,
-      basic: true,
+      primary: true,
       action: () => editor.chain().focus().toggleItalic().run(),
     },
     {
-      label: "Subrayado (Ctrl+U)",
+      label: "Subrayado",
+      shortcut: "Mod+U",
       icon: Underline,
       active: state.underline,
       action: () => editor.chain().focus().toggleUnderline().run(),
     },
     {
       label: "Encabezado",
+      shortcut: "Mod+Alt+2",
       icon: TextSize,
       active: state.heading,
-      basic: true,
+      primary: true,
       action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
     },
     {
       label: "Lista con viñetas",
+      shortcut: "Mod+Shift+8",
       icon: List,
       active: state.bullet,
-      basic: true,
+      primary: true,
       action: () => editor.chain().focus().toggleBulletList().run(),
     },
     {
       label: "Lista numerada",
+      shortcut: "Mod+Shift+7",
       icon: NumberedListLeft,
       active: state.ordered,
       action: () => editor.chain().focus().toggleOrderedList().run(),
     },
     {
       label: "Lista de tareas",
+      shortcut: "Mod+Shift+9",
       icon: TaskList,
       active: state.task,
       action: () => editor.chain().focus().toggleTaskList().run(),
     },
     {
       label: "Cita",
+      shortcut: "Mod+Shift+B",
       icon: Quote,
       active: state.quote,
       action: () => editor.chain().focus().toggleBlockquote().run(),
     },
     {
       label: "Bloque de código",
+      shortcut: "Mod+Alt+C",
       icon: Code,
       active: state.code,
       action: () => editor.chain().focus().toggleCodeBlock().run(),
     },
     {
-      label: "Deshacer (Ctrl+Z)",
+      label: "Deshacer",
+      shortcut: "Mod+Z",
       icon: Undo,
       disabled: !state.undo,
       action: () => editor.chain().focus().undo().run(),
     },
     {
-      label: "Rehacer (Ctrl+Shift+Z)",
+      label: "Rehacer",
+      shortcut: "Mod+Shift+Z",
       icon: Redo,
       disabled: !state.redo,
       action: () => editor.chain().focus().redo().run(),
     },
   ];
+  const primary = tools.filter((tool) => tool.primary);
+  const secondary = tools.filter((tool) => !tool.primary);
 
   return (
     <div
+      ref={barRef}
       data-toolbar-position={typeof placement === "string" ? placement : "free"}
-      className={`relative flex max-w-full flex-wrap items-center gap-0.5 rounded-lg border border-line bg-surface p-1.5 shadow-black/5 ${dragging ? "shadow-lg" : "shadow-sm"}`}
+      data-toolbar-orientation="vertical"
+      className={`flex max-h-[calc(100dvh-7rem)] w-11 flex-col items-center gap-0.5 overflow-y-auto rounded-full border border-line bg-surface/95 p-1 shadow-lg shadow-black/10 backdrop-blur-md [scrollbar-width:none] ${dragging ? "shadow-black/20" : ""}`}
       role="toolbar"
+      aria-orientation="vertical"
       aria-label="Formato de texto"
     >
       {dragHandle}
-      {tools
-        .filter((tool) => expanded || tool.basic)
-        .map(({ label, icon: Icon, active, disabled, action }) => (
-          <Button
-            key={label}
-            variant="icon"
+      <span className="my-0.5 h-px w-5 bg-line" aria-hidden="true" />
+      <FontSizeControl
+        editor={editor}
+        dragging={dragging}
+        align={align}
+        open={menu === "size"}
+        onOpenChange={(open) => setMenu(open ? "size" : null)}
+      />
+      {primary.map(({ label, shortcut, icon: Icon, active, disabled, action }) => (
+        <Tooltip
+          key={label}
+          label={label}
+          shortcut={shortcut ? formatShortcut(shortcut) : undefined}
+          disabled={dragging}
+        >
+          <button
+            type="button"
+            className={railButton}
             aria-label={label}
-            title={label}
+            aria-keyshortcuts={
+              shortcut
+                ? formatShortcut(shortcut)
+                    .replace("Cmd", "Meta")
+                    .replace("Ctrl", "Control")
+                : undefined
+            }
             aria-pressed={active}
             disabled={disabled}
             onMouseDown={(event) => event.preventDefault()}
-            onClick={action}
+            onClick={() => {
+              setMenu(null);
+              action();
+            }}
           >
-            <Icon size={17} />
+            <Icon size={16} />
+          </button>
+        </Tooltip>
+      ))}
+      <Tooltip label="Más opciones de formato" disabled={dragging || menu === "more"}>
+        <button
+          ref={moreRef}
+          type="button"
+          className={railButton}
+          aria-pressed={menu === "more"}
+          aria-label="Más opciones de formato"
+          aria-expanded={menu === "more"}
+          aria-haspopup="true"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setMenu((value) => (value === "more" ? null : "more"))}
+        >
+          <MoreHoriz size={16} />
+        </button>
+      </Tooltip>
+      <ToolbarPopover
+        open={menu === "more" && !dragging}
+        anchorRef={moreRef}
+        align={align}
+        label="Más opciones de formato"
+      >
+        <p className="px-2 pt-1 pb-1 text-[10px] tracking-wide text-muted uppercase">
+          Formato
+        </p>
+        {secondary.map(({ label, shortcut, icon: Icon, active, disabled, action }) => (
+          <Button
+            key={label}
+            variant="menu"
+            aria-label={label}
+            aria-keyshortcuts={
+              shortcut
+                ? formatShortcut(shortcut)
+                    .replace("Cmd", "Meta")
+                    .replace("Ctrl", "Control")
+                : undefined
+            }
+            aria-pressed={active}
+            disabled={disabled}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              action();
+              setMenu(null);
+            }}
+          >
+            <Icon size={15} />
+            <span className="flex-1">{label}</span>
+            {shortcut && (
+              <span className="text-[10px] text-faint">
+                {formatShortcut(shortcut)}
+              </span>
+            )}
           </Button>
         ))}
-      <Button
-        variant="icon"
-        aria-pressed={expanded}
-        aria-label={
-          expanded ? "Menos opciones de formato" : "Más opciones de formato"
-        }
-        title={expanded ? "Menos opciones" : "Más opciones"}
-        aria-expanded={expanded}
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={() => setExpanded((value) => !value)}
-      >
-        <MoreHoriz size={17} />
-      </Button>
-      <span className="mx-0.5 h-4 w-px bg-line" aria-hidden="true" />
-      <details
-        ref={menuRef}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            event.stopPropagation();
-            closeMenu();
-          }
-        }}
-      >
-        <summary
-          ref={triggerRef}
-          className={`${iconButtonClass} list-none [&::-webkit-details-marker]:hidden`}
+      </ToolbarPopover>
+      <span className="my-0.5 h-px w-5 bg-line" aria-hidden="true" />
+      <Tooltip label="Posición de la barra" disabled={dragging || menu === "position"}>
+        <button
+          ref={positionRef}
+          type="button"
+          className={railButton}
           aria-label="Posición de la barra"
-          title="Posición de la barra"
+          aria-expanded={menu === "position"}
+          aria-haspopup="true"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() =>
+            setMenu((value) => (value === "position" ? null : "position"))
+          }
         >
-          <Position size={16} />
-        </summary>
-        <div
-          className={`absolute z-30 max-h-[40dvh] w-58 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-line bg-surface p-1 shadow-lg shadow-black/5 ${bottom ? "bottom-full mb-2" : "top-full mt-2"} ${right ? "right-0" : "left-0"}`}
-          role="group"
-          aria-label="Ubicación de herramientas"
-        >
-          {TOOLBAR_POSITIONS.map((option) => (
-            <Button
-              key={option.id}
-              variant="menu"
-              aria-pressed={placement === option.id}
-              onClick={() => {
-                onPlacementChange(option.id);
-                closeMenu();
-              }}
+          <Position size={15} />
+        </button>
+      </Tooltip>
+      <ToolbarPopover
+        open={menu === "position" && !dragging}
+        anchorRef={positionRef}
+        align={align}
+        label="Ubicación de herramientas"
+      >
+        {TOOLBAR_POSITIONS.map((option) => (
+          <Button
+            key={option.id}
+            variant="menu"
+            aria-pressed={placement === option.id}
+            onClick={() => {
+              onPlacementChange(option.id);
+              setMenu(null);
+              positionRef.current?.focus();
+            }}
+          >
+            <span
+              className="relative size-4 shrink-0 rounded-sm border border-strong"
+              aria-hidden="true"
             >
               <span
-                className="relative size-4 shrink-0 rounded-sm border border-strong"
-                aria-hidden="true"
-              >
-                <span
-                  className={`absolute size-1.5 rounded-xs bg-muted ${cornerPreview[option.id]}`}
-                />
-              </span>
-              <span className="flex-1">{option.label}</span>
-              {placement === option.id && <Check size={13} />}
-            </Button>
-          ))}
-        </div>
-      </details>
+                className={`absolute size-1.5 rounded-xs bg-muted ${cornerPreview[option.id]}`}
+              />
+            </span>
+            <span className="flex-1">{option.label}</span>
+            {placement === option.id && <Check size={13} />}
+          </Button>
+        ))}
+      </ToolbarPopover>
     </div>
   );
 }

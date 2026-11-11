@@ -5,6 +5,9 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   clearScreen: false,
+  // The editor is lazy-loaded. Prebundle its text-style extension at startup
+  // so opening a note cannot invalidate the dependency cache mid-load.
+  optimizeDeps: { include: ["@tiptap/extension-text-style"] },
   server: {
     port: 1420,
     strictPort: true,

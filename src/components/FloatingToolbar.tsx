@@ -8,6 +8,7 @@ import {
 import EditorToolbar from "./EditorToolbar";
 import { Drag } from "./icons";
 import { useToolbarDrag } from "./useToolbarDrag";
+import Tooltip from "./Tooltip";
 
 interface Props {
   editor: Editor;
@@ -87,35 +88,40 @@ export default function FloatingToolbar({
         dragging={Boolean(preview)}
         dragHandle={
           <>
-            <button
-              type="button"
-              {...handleProps}
-              aria-label="Arrastrar barra de herramientas"
-              aria-describedby={instructions}
-              title="Arrastra la barra libremente"
-              className="inline-flex size-7.5 shrink-0 touch-none cursor-grab items-center justify-center rounded text-muted hover:bg-hover active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-strong"
-              onKeyDown={(event) => {
-                const delta = {
-                  ArrowLeft: [-1, 0],
-                  ArrowRight: [1, 0],
-                  ArrowUp: [0, -1],
-                  ArrowDown: [0, 1],
-                }[event.key];
-                if (!delta) return;
-                event.preventDefault();
-                const step = event.shiftKey ? 40 : 10;
-                onPlacementChange(
-                  getToolbarPoint(
-                    coordinates.x + delta[0] * step,
-                    coordinates.y + delta[1] * step,
-                    size,
-                    toolbarSize,
-                  ),
-                );
-              }}
+            <Tooltip
+              label="Mover barra de herramientas"
+              shortcut="Flechas · Shift para pasos mayores"
+              disabled={Boolean(preview)}
             >
-              <Drag size={16} />
-            </button>
+              <button
+                type="button"
+                {...handleProps}
+                aria-label="Arrastrar barra de herramientas"
+                aria-describedby={instructions}
+                className="inline-flex size-8 shrink-0 touch-none cursor-grab items-center justify-center rounded-full text-muted hover:bg-hover active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-strong"
+                onKeyDown={(event) => {
+                  const delta = {
+                    ArrowLeft: [-1, 0],
+                    ArrowRight: [1, 0],
+                    ArrowUp: [0, -1],
+                    ArrowDown: [0, 1],
+                  }[event.key];
+                  if (!delta) return;
+                  event.preventDefault();
+                  const step = event.shiftKey ? 40 : 10;
+                  onPlacementChange(
+                    getToolbarPoint(
+                      coordinates.x + delta[0] * step,
+                      coordinates.y + delta[1] * step,
+                      size,
+                      toolbarSize,
+                    ),
+                  );
+                }}
+              >
+                <Drag size={16} />
+              </button>
+            </Tooltip>
             <span id={instructions} className="sr-only">
               Arrastra para colocar la barra en cualquier punto del editor. Usa
               las flechas para moverla con el teclado y Escape para cancelar un

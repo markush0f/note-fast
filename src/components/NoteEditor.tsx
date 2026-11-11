@@ -4,6 +4,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
+import { TextStyle, FontSize } from "@tiptap/extension-text-style";
 import type { Note } from "../lib/notes";
 import type { ToolbarPlacement } from "../lib/editor-layout";
 import FloatingToolbar from "./FloatingToolbar";
@@ -45,6 +46,8 @@ export default function NoteEditor({
       Placeholder.configure({ placeholder: "Escribe…" }),
       TaskList,
       TaskItem.configure({ nested: true }),
+      TextStyle,
+      FontSize,
     ],
     content: note.content,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),

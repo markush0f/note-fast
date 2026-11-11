@@ -60,7 +60,9 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 - Vista de dos paneles: lista de notas y editor, sin navegación ni información decorativa.
 - Favoritas mediante el filtro de estrella y orden por última edición.
 - Barra flotante con posición libre: arrastra el asa con ratón, lápiz o pantalla táctil y suéltala en cualquier punto del editor, sin ajuste automático a esquinas. Escape cancela el arrastre; las flechas del teclado desplazan el asa (Shift para pasos mayores). El menú de posición mantiene las esquinas como atajos. La ubicación se guarda en IndexedDB o SQLite y se adapta al tamaño de la ventana para que la barra siga accesible. Al flotar puede superponerse al texto: muévela donde te resulte más cómoda.
-- Formato básico visible; el resto de herramientas se despliega desde `…`.
+- Barra vertical compacta: negrita, cursiva, encabezado y lista quedan a la vista. El resto del formato se abre en un panel lateral, sin ensanchar la barra ni tapar una línea entera de texto.
+- Tamaño de texto en el botón numérico de la barra. Al abrirlo: valor entero entre 8 y 200 px (Enter o salir del campo), `−` / `+`, tamaños predefinidos y restauración del tamaño del párrafo o encabezado. Se aplica a la selección o a lo que escribas después y se conserva al guardar y exportar. `Tamaño` indica selecciones mixtas; Escape descarta la entrada. No se aplica dentro de código.
+- Cada herramienta muestra su nombre y atajo al pasar el ratón o enfocarla con el teclado (Ctrl en Windows/Linux, Cmd en Mac). Las ayudas se adaptan al borde de la ventana, se cierran con Escape y no interfieren con el arrastre.
 - Guardado automático, estado visible de guardado y reintento en caso de error.
 - Menú `…` de la nota para marcar como favorita, exportar HTML o eliminar.
 - Icono personalizable por nota y carpeta: menú `…` → `Cambiar icono`. Catálogo de más de 100 iconos Iconoir, con búsqueda por nombre y sinónimos, filtros por categoría y opción de restaurar el predeterminado. La elección se guarda localmente y se conserva al renombrar carpetas o mover notas; los cuadernos anteriores siguen siendo compatibles.
@@ -86,7 +88,8 @@ Los datos del navegador y de la aplicación nativa **son independientes**. En we
 src/
   App.tsx                    Cuaderno, selección y guardado
   components/NoteEditor.tsx  Documento, Tiptap y zona de herramientas
-  components/EditorToolbar.tsx Controles de formato y atajos de posición
+  components/EditorToolbar.tsx Riel vertical de formato y paneles laterales
+  components/ToolbarPopover.tsx Paneles anclados que no ensanchan la barra
   components/FloatingToolbar.tsx Posición libre, límites y adaptación de tamaño
   components/useToolbarDrag.ts Arrastre con Pointer Events y cancelación
   components/FileExplorer.tsx Carpetas y notas anidadas

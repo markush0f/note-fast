@@ -38,6 +38,7 @@ import {
 import FileExplorer from "./components/FileExplorer";
 import Dialog from "./components/Dialog";
 import SettingsDialog from "./components/SettingsDialog";
+import EditorErrorBoundary from "./components/EditorErrorBoundary";
 import { applyTheme, getInitialTheme } from "./lib/theme";
 import IconPicker from "./components/IconPicker";
 import type { ItemTarget } from "./lib/item-icons";
@@ -544,7 +545,7 @@ export default function App() {
           )}
         </header>
         {selected ? (
-          <Suspense
+          <EditorErrorBoundary key={selected.id}><Suspense
             fallback={
               <p className="flex-1 p-6 text-[13px] text-muted">
                 Cargando editor…
@@ -563,7 +564,7 @@ export default function App() {
                 setWorkspace((previous) => ({ ...previous, toolbarPosition }))
               }
             />
-          </Suspense>
+          </Suspense></EditorErrorBoundary>
         ) : (
           <div className="grid flex-1 place-content-center p-6">
             <Button variant="primary" onClick={() => addNote()}>
