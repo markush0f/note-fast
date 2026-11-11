@@ -24,7 +24,7 @@ export default function IconPicker({ name, value, onSelect, onClose }: Props) {
   const results = filterItemIcons(query, category);
   return (
     <Dialog title="Cambiar icono" description={name} onClose={onClose}>
-      <div className="mt-4 flex h-9 items-center gap-2 rounded border border-line px-2 text-muted focus-within:border-stone-400">
+      <div className="mt-4 flex h-9 items-center gap-2 rounded border border-line px-2 text-muted focus-within:border-strong">
         <Search size={15} />
         <input
           className="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
@@ -45,7 +45,7 @@ export default function IconPicker({ name, value, onSelect, onClose }: Props) {
       </div>
       <div className="my-3 flex items-center justify-between gap-2">
         <select
-          className="max-w-45 rounded border border-line bg-white px-2 py-1.5 text-xs text-stone-600 outline-none focus:border-stone-400"
+          className="max-w-45 rounded border border-line bg-surface px-2 py-1.5 text-xs text-secondary outline-none focus:border-strong"
           aria-label="Categoría de iconos"
           value={category}
           onChange={(event) =>
@@ -77,7 +77,7 @@ export default function IconPicker({ name, value, onSelect, onClose }: Props) {
                 aria-label={label}
                 title={label}
                 aria-pressed={value === id}
-                className="flex aspect-square w-full cursor-pointer items-center justify-center rounded-md border border-transparent text-stone-600 hover:bg-hover aria-pressed:border-stone-400 aria-pressed:bg-selection aria-pressed:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-500"
+                className="flex aspect-square w-full cursor-pointer items-center justify-center rounded-md border border-transparent text-secondary hover:bg-hover aria-pressed:border-strong aria-pressed:bg-selection aria-pressed:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-strong"
                 onClick={() => onSelect(id)}
               >
                 <ItemIcon icon={id} kind="note" size={24} />

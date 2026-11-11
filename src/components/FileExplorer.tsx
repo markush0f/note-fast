@@ -115,7 +115,7 @@ export default function FileExplorer(props: Props) {
     <li key={note.id}>
       <button
         draggable
-        className={`mb-0.5 block w-full cursor-grab rounded bg-transparent px-2.5 py-1.5 text-left hover:bg-hover active:cursor-grabbing aria-[current=true]:bg-selection focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-stone-500 ${draggedId === note.id ? "opacity-40" : ""}`}
+        className={`mb-0.5 block w-full cursor-grab rounded bg-transparent px-2.5 py-1.5 text-left hover:bg-hover active:cursor-grabbing aria-[current=true]:bg-selection focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-strong ${draggedId === note.id ? "opacity-40" : ""}`}
         aria-label={`Abrir ${note.title || "Sin título"}`}
         aria-current={selectedId === note.id ? "true" : undefined}
         title={`${note.title || "Sin título"}\n${plainText(note.content) || "Nota vacía"}`}
@@ -135,7 +135,7 @@ export default function FileExplorer(props: Props) {
             icon={note.icon}
             kind="note"
             size={13}
-            className="shrink-0 text-stone-500"
+            className="shrink-0 text-muted"
           />
           <span className="min-w-0 flex-1 truncate">
             {note.title || "Sin título"}
@@ -143,7 +143,7 @@ export default function FileExplorer(props: Props) {
           {note.favorite && (
             <Star
               size={11}
-              className="shrink-0 text-stone-500"
+              className="shrink-0 text-muted"
               fill="currentColor"
             />
           )}
@@ -186,10 +186,10 @@ export default function FileExplorer(props: Props) {
               <div
                 {...dropHandlers(folder.id)}
                 data-drop-target={dropTarget === folder.id ? "true" : undefined}
-                className={`mb-0.5 flex items-center rounded ${dropTarget === folder.id ? "bg-stone-200 ring-1 ring-inset ring-stone-500" : activeFolderId === folder.id ? "bg-stone-200/80 hover:bg-stone-200" : "bg-stone-100/70 hover:bg-stone-200/60"}`}
+                className={`mb-0.5 flex items-center rounded ${dropTarget === folder.id ? "bg-selection ring-1 ring-inset ring-strong" : activeFolderId === folder.id ? "bg-selection hover:bg-hover" : "bg-soft/70 hover:bg-selection/60"}`}
               >
                 <button
-                  className="flex h-8 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted focus-visible:outline-2 focus-visible:outline-stone-500"
+                  className="flex h-8 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted focus-visible:outline-2 focus-visible:outline-strong"
                   aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${folder.name}`}
                   aria-expanded={isExpanded}
                   onClick={() =>
@@ -208,7 +208,7 @@ export default function FileExplorer(props: Props) {
                   )}
                 </button>
                 <button
-                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded py-2 text-left text-xs font-semibold text-stone-700 focus-visible:outline-2 focus-visible:outline-stone-500"
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded py-2 text-left text-xs font-semibold text-secondary focus-visible:outline-2 focus-visible:outline-strong"
                   title={folder.name}
                   aria-label={`Seleccionar carpeta ${folder.name}`}
                   aria-current={
@@ -226,7 +226,7 @@ export default function FileExplorer(props: Props) {
                     kind="folder"
                     size={17}
                     strokeWidth={1.75}
-                    className="shrink-0 text-amber-800/80"
+                    className="shrink-0 text-folder/80"
                   />
                   <span className="truncate">{folder.name}</span>
                 </button>
@@ -317,16 +317,12 @@ export default function FileExplorer(props: Props) {
       <button
         {...dropHandlers(null)}
         data-drop-target={dropTarget === null ? "true" : undefined}
-        className={`mb-1 flex w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs font-semibold text-stone-700 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-stone-500 ${dropTarget === null ? "bg-stone-200 ring-1 ring-inset ring-stone-500" : "bg-stone-100/70 hover:bg-stone-200/60 aria-[current=true]:bg-stone-200/80"}`}
+        className={`mb-1 flex w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs font-semibold text-secondary focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-strong ${dropTarget === null ? "bg-selection ring-1 ring-inset ring-strong" : "bg-soft/70 hover:bg-selection/60 aria-[current=true]:bg-selection/80"}`}
         aria-label="Notas (raíz)"
         aria-current={activeFolderId === null ? "true" : undefined}
         onClick={() => props.onSelectFolder(null)}
       >
-        <FolderIcon
-          size={17}
-          strokeWidth={1.75}
-          className="text-amber-800/80"
-        />
+        <FolderIcon size={17} strokeWidth={1.75} className="text-folder/80" />
         Notas
       </button>
       {filtering ? (

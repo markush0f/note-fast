@@ -41,6 +41,9 @@ import {
   Palette as PaletteIcon,
   Position as PositionIcon,
   Drag as DragIcon,
+  Settings as SettingsIcon,
+  SunLight as SunLightIcon,
+  HalfMoon as HalfMoonIcon,
 } from "iconoir-react";
 
 export type IconProps = Omit<SVGProps<SVGSVGElement>, "ref"> & {
@@ -104,3 +107,6 @@ export const Bookmark = icon(BookmarkIcon);
 export const Palette = icon(PaletteIcon);
 export const Position = icon(PositionIcon);
 export const Drag = icon(DragIcon);
+export const Settings = icon(SettingsIcon);
+export const SunLight = icon(SunLightIcon);
+export const HalfMoon = icon(HalfMoonIcon);

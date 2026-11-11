@@ -1,6 +1,4 @@
-import { useEffect, useId, useRef, useState, type RefObject } from "react";
-import { createPortal } from "react-dom";
-import { useToolbarDrag } from "./useToolbarDrag";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import {
   Bold,
@@ -16,18 +14,23 @@ import {
   Redo,
   MoreHoriz,
   Position,
-  Drag,
   Check,
   type IconComponent,
 } from "./icons";
 import { Button, iconButtonClass } from "./ui";
-import { TOOLBAR_POSITIONS, type ToolbarPosition } from "../lib/editor-layout";
+import {
+  TOOLBAR_POSITIONS,
+  getToolbarPlacementCorner,
+  type ToolbarPosition,
+  type ToolbarPlacement,
+} from "../lib/editor-layout";
 
 interface Props {
   editor: Editor;
-  boundaryRef: RefObject<HTMLDivElement | null>;
-  position: ToolbarPosition;
-  onPositionChange: (position: ToolbarPosition) => void;
+  placement: ToolbarPlacement;
+  onPlacementChange: (placement: ToolbarPlacement) => void;
+  dragHandle: ReactNode;
+  dragging: boolean;
 }
 
 const cornerPreview: Record<ToolbarPosition, string> = {
@@ -39,21 +42,15 @@ const cornerPreview: Record<ToolbarPosition, string> = {
 
 export default function EditorToolbar({
   editor,
-  boundaryRef,
-  position,
-  onPositionChange,
+  placement,
+  onPlacementChange,
+  dragHandle,
+  dragging,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const menuRef = useRef<HTMLDetailsElement>(null);
   const triggerRef = useRef<HTMLElement>(null);
-  const instructions = useId();
-  const { toolbarRef, preview, handleProps } = useToolbarDrag(
-    boundaryRef,
-    onPositionChange,
-    () => {
-      if (menuRef.current) menuRef.current.open = false;
-    },
-  );
+  const position = getToolbarPlacementCorner(placement);
   const bottom = position.startsWith("bottom");
   const right = position.endsWith("right");
   const state = useEditorState({
@@ -171,134 +168,90 @@ export default function EditorToolbar({
   ];
 
   return (
-    <>
-      <div
-        ref={toolbarRef}
-        data-toolbar-position={position}
-        data-toolbar-dragging={preview ? "true" : undefined}
-        style={
-          preview
-            ? { transform: `translate(${preview.x}px, ${preview.y}px)` }
-            : undefined
+    <div
+      data-toolbar-position={typeof placement === "string" ? placement : "free"}
+      className={`relative flex max-w-full flex-wrap items-center gap-0.5 rounded-lg border border-line bg-surface p-1.5 shadow-black/5 ${dragging ? "shadow-lg" : "shadow-sm"}`}
+      role="toolbar"
+      aria-label="Formato de texto"
+    >
+      {dragHandle}
+      {tools
+        .filter((tool) => expanded || tool.basic)
+        .map(({ label, icon: Icon, active, disabled, action }) => (
+          <Button
+            key={label}
+            variant="icon"
+            aria-label={label}
+            title={label}
+            aria-pressed={active}
+            disabled={disabled}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={action}
+          >
+            <Icon size={17} />
+          </Button>
+        ))}
+      <Button
+        variant="icon"
+        aria-pressed={expanded}
+        aria-label={
+          expanded ? "Menos opciones de formato" : "Más opciones de formato"
         }
-        className={`relative flex max-w-full flex-wrap items-center gap-0.5 rounded-lg border border-line bg-white p-1.5 shadow-black/5 ${preview ? "z-40 shadow-lg select-none" : "z-10 shadow-sm"}`}
-        role="toolbar"
-        aria-label="Formato de texto"
+        title={expanded ? "Menos opciones" : "Más opciones"}
+        aria-expanded={expanded}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => setExpanded((value) => !value)}
       >
-        <button
-          type="button"
-          {...handleProps}
-          aria-label="Arrastrar barra de herramientas"
-          aria-describedby={instructions}
-          title="Arrastra la barra a una esquina"
-          className="inline-flex size-7.5 shrink-0 touch-none cursor-grab items-center justify-center rounded text-muted hover:bg-hover active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-stone-500"
-        >
-          <Drag size={16} />
-        </button>
-        <span id={instructions} className="sr-only">
-          Arrastra para cambiar de esquina. Pulsa Escape para cancelar o utiliza
-          el selector de posición con el teclado.
-        </span>
-        {tools
-          .filter((tool) => expanded || tool.basic)
-          .map(({ label, icon: Icon, active, disabled, action }) => (
-            <Button
-              key={label}
-              variant="icon"
-              aria-label={label}
-              title={label}
-              aria-pressed={active}
-              disabled={disabled}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={action}
-            >
-              <Icon size={17} />
-            </Button>
-          ))}
-        <Button
-          variant="icon"
-          aria-pressed={expanded}
-          aria-label={
-            expanded ? "Menos opciones de formato" : "Más opciones de formato"
+        <MoreHoriz size={17} />
+      </Button>
+      <span className="mx-0.5 h-4 w-px bg-line" aria-hidden="true" />
+      <details
+        ref={menuRef}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            closeMenu();
           }
-          title={expanded ? "Menos opciones" : "Más opciones"}
-          aria-expanded={expanded}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => setExpanded((value) => !value)}
+        }}
+      >
+        <summary
+          ref={triggerRef}
+          className={`${iconButtonClass} list-none [&::-webkit-details-marker]:hidden`}
+          aria-label="Posición de la barra"
+          title="Posición de la barra"
         >
-          <MoreHoriz size={17} />
-        </Button>
-        <span className="mx-0.5 h-4 w-px bg-line" aria-hidden="true" />
-        <details
-          ref={menuRef}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              event.stopPropagation();
-              closeMenu();
-            }
-          }}
+          <Position size={16} />
+        </summary>
+        <div
+          className={`absolute z-30 max-h-[40dvh] w-58 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-line bg-surface p-1 shadow-lg shadow-black/5 ${bottom ? "bottom-full mb-2" : "top-full mt-2"} ${right ? "right-0" : "left-0"}`}
+          role="group"
+          aria-label="Ubicación de herramientas"
         >
-          <summary
-            ref={triggerRef}
-            className={`${iconButtonClass} list-none [&::-webkit-details-marker]:hidden`}
-            aria-label="Posición de la barra"
-            title="Posición de la barra"
-          >
-            <Position size={16} />
-          </summary>
-          <div
-            className={`absolute z-30 max-h-[40dvh] w-58 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-line bg-white p-1 shadow-lg shadow-black/5 ${bottom ? "bottom-full mb-2" : "top-full mt-2"} ${right ? "right-0" : "left-0"}`}
-            role="group"
-            aria-label="Ubicación de herramientas"
-          >
-            {TOOLBAR_POSITIONS.map((option) => (
-              <Button
-                key={option.id}
-                variant="menu"
-                aria-pressed={position === option.id}
-                onClick={() => {
-                  onPositionChange(option.id);
-                  closeMenu();
-                }}
+          {TOOLBAR_POSITIONS.map((option) => (
+            <Button
+              key={option.id}
+              variant="menu"
+              aria-pressed={placement === option.id}
+              onClick={() => {
+                onPlacementChange(option.id);
+                closeMenu();
+              }}
+            >
+              <span
+                className="relative size-4 shrink-0 rounded-sm border border-strong"
+                aria-hidden="true"
               >
                 <span
-                  className="relative size-4 shrink-0 rounded-sm border border-stone-300"
-                  aria-hidden="true"
-                >
-                  <span
-                    className={`absolute size-1.5 rounded-xs bg-stone-500 ${cornerPreview[option.id]}`}
-                  />
-                </span>
-                <span className="flex-1">{option.label}</span>
-                {position === option.id && <Check size={13} />}
-              </Button>
-            ))}
-          </div>
-        </details>
-      </div>
-      {preview &&
-        boundaryRef.current &&
-        createPortal(
-          <div
-            className="pointer-events-none absolute inset-0 z-20 bg-white/30"
-            aria-hidden="true"
-          >
-            {TOOLBAR_POSITIONS.map((corner) => (
-              <span
-                key={corner.id}
-                data-drop-corner={corner.id}
-                data-active={
-                  preview.position === corner.id ? "true" : undefined
-                }
-                className={`absolute rounded border border-dashed px-2 py-1.5 text-[10px] ${cornerPreview[corner.id]} ${preview.position === corner.id ? "border-stone-500 bg-stone-200 text-ink" : "border-stone-300 bg-white text-muted"}`}
-              >
-                {corner.label}
+                  className={`absolute size-1.5 rounded-xs bg-muted ${cornerPreview[option.id]}`}
+                />
               </span>
-            ))}
-          </div>,
-          boundaryRef.current,
-        )}
-    </>
+              <span className="flex-1">{option.label}</span>
+              {placement === option.id && <Check size={13} />}
+            </Button>
+          ))}
+        </div>
+      </details>
+    </div>
   );
 }

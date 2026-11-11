@@ -7,14 +7,14 @@ import {
 } from "react";
 import {
   getToolbarDragOffset,
-  getToolbarDropPosition,
+  getToolbarPoint,
   type ToolbarBounds,
-  type ToolbarPosition,
+  type ToolbarPoint,
 } from "../lib/editor-layout";
 
 export function useToolbarDrag(
   boundaryRef: RefObject<HTMLDivElement | null>,
-  onDrop: (position: ToolbarPosition) => void,
+  onDrop: (position: ToolbarPoint) => void,
   onStart: () => void,
 ) {
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -28,7 +28,7 @@ export function useToolbarDrag(
   const [preview, setPreview] = useState<{
     x: number;
     y: number;
-    position: ToolbarPosition;
+    point: ToolbarPoint;
   } | null>(null);
   const cancel = () => {
     session.current = null;
@@ -64,10 +64,10 @@ export function useToolbarDrag(
     if (!current.moved && Math.hypot(dx, dy) < 5) return null;
     current.moved = true;
     const bounds = boundary.getBoundingClientRect();
-    return {
-      ...getToolbarDragOffset(current.toolbar, bounds, dx, dy),
-      position: getToolbarDropPosition(event.clientX, event.clientY, bounds),
-    };
+    const offset = getToolbarDragOffset(current.toolbar, bounds, dx, dy);
+    const x = current.toolbar.left - bounds.left + offset.x;
+    const y = current.toolbar.top - bounds.top + offset.y;
+    return { x, y, point: getToolbarPoint(x, y, bounds, current.toolbar) };
   };
   return {
     toolbarRef,
@@ -102,7 +102,7 @@ export function useToolbarDrag(
         cancel();
         if (event.currentTarget.hasPointerCapture(event.pointerId))
           event.currentTarget.releasePointerCapture(event.pointerId);
-        if (next) onDrop(next.position);
+        if (next) onDrop(next.point);
       },
       onPointerCancel: cancel,
       onLostPointerCapture: cancel,

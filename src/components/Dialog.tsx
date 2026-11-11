@@ -21,7 +21,10 @@ export default function Dialog({
       previous instanceof HTMLElement
         ? (previous.closest("details")?.querySelector("summary") ?? previous)
         : null;
-    ref.current?.querySelector<HTMLElement>("input, select, button")?.focus();
+    (
+      ref.current?.querySelector<HTMLElement>("input:checked") ??
+      ref.current?.querySelector<HTMLElement>("input, select, button")
+    )?.focus();
     return () => {
       if (trigger instanceof HTMLElement && trigger.isConnected)
         trigger.focus();
@@ -29,7 +32,7 @@ export default function Dialog({
   }, []);
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/20 p-5"
+      className="fixed inset-0 z-50 grid place-items-center bg-overlay p-5"
       onClick={onClose}
     >
       <section
@@ -38,7 +41,7 @@ export default function Dialog({
         aria-modal="true"
         aria-labelledby={`${id}-heading`}
         aria-describedby={description ? `${id}-description` : undefined}
-        className="max-h-[calc(100dvh-2.5rem)] w-full max-w-90 overflow-y-auto rounded-lg border border-line bg-white p-6.5"
+        className="max-h-[calc(100dvh-2.5rem)] w-full max-w-90 overflow-y-auto rounded-lg border border-line bg-surface p-6.5"
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
@@ -47,7 +50,7 @@ export default function Dialog({
           }
           if (event.key === "Tab") {
             const controls = ref.current?.querySelectorAll<HTMLElement>(
-              "input, select, button:not(:disabled)",
+              "input:not([type=radio]), input[type=radio]:checked, select, button:not(:disabled)",
             );
             if (!controls?.length) return;
             const first = controls[0];

@@ -21,6 +21,7 @@ import {
   Star,
   Trash,
   Xmark,
+  Settings,
 } from "./components/icons";
 import { Button, iconButtonClass, MenuItems } from "./components/ui";
 import { createNote, type Note } from "./lib/notes";
@@ -36,6 +37,8 @@ import {
 } from "./lib/workspace";
 import FileExplorer from "./components/FileExplorer";
 import Dialog from "./components/Dialog";
+import SettingsDialog from "./components/SettingsDialog";
+import { applyTheme, getInitialTheme } from "./lib/theme";
 import IconPicker from "./components/IconPicker";
 import type { ItemTarget } from "./lib/item-icons";
 import { DEFAULT_TOOLBAR_POSITION } from "./lib/editor-layout";
@@ -49,6 +52,9 @@ export default function App() {
     folders: [],
   });
   const { notes, folders } = workspace;
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [initialTheme] = useState(getInitialTheme);
+  const theme = workspace.theme ?? initialTheme;
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [folderDialog, setFolderDialog] = useState<{
     id?: string;
@@ -160,6 +166,10 @@ export default function App() {
       cancelled = true;
     };
   }, [workspace, loaded, retry]);
+
+  useEffect(() => {
+    if (loaded) applyTheme(theme);
+  }, [loaded, theme]);
 
   const addNote = useCallback(
     (folderId: string | null = activeFolderId) => {
@@ -329,11 +339,11 @@ export default function App() {
           </div>
         </header>
         <div className="flex items-center gap-1.5 px-4 pb-4.5">
-          <div className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded border border-line px-2 text-stone-400 focus-within:border-stone-400">
+          <div className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded border border-line px-2 text-faint focus-within:border-strong">
             <Search size={15} />
             <input
               ref={searchRef}
-              className="min-w-0 w-full bg-transparent text-xs text-ink outline-none placeholder:text-stone-500"
+              className="min-w-0 w-full bg-transparent text-xs text-ink outline-none placeholder:text-muted"
               aria-label="Buscar notas"
               placeholder="Buscar"
               value={query}
@@ -341,7 +351,7 @@ export default function App() {
             />
             {query && (
               <button
-                className="flex size-5 shrink-0 cursor-pointer items-center justify-center rounded hover:bg-hover focus-visible:outline-2 focus-visible:outline-stone-500"
+                className="flex size-5 shrink-0 cursor-pointer items-center justify-center rounded hover:bg-hover focus-visible:outline-2 focus-visible:outline-strong"
                 aria-label="Limpiar búsqueda"
                 onClick={() => setQuery("")}
               >
@@ -381,6 +391,12 @@ export default function App() {
           }
           onDeleteFolder={(folder) => setDeleteFolderId(folder.id)}
         />
+        <div className="shrink-0 border-t border-line p-2.5">
+          <Button variant="menu" onClick={() => setSettingsOpen(true)}>
+            <Settings size={16} />
+            Ajustes
+          </Button>
+        </div>
       </aside>
 
       <main
@@ -396,7 +412,7 @@ export default function App() {
             <ArrowLeft size={18} />
           </Button>
           <div
-            className={`flex items-center gap-1.5 text-[11px] ${saveStatus === "error" ? "text-red-800" : "text-stone-500"}`}
+            className={`flex items-center gap-1.5 text-[11px] ${saveStatus === "error" ? "text-danger" : "text-muted"}`}
             role="status"
           >
             {saveStatus === "error" ? (
@@ -535,6 +551,15 @@ export default function App() {
         )}
       </main>
 
+      {settingsOpen && (
+        <SettingsDialog
+          theme={theme}
+          onClose={() => setSettingsOpen(false)}
+          onThemeChange={(theme) =>
+            setWorkspace((previous) => ({ ...previous, theme }))
+          }
+        />
+      )}
       {iconTarget && iconItem && (
         <IconPicker
           name={
@@ -565,7 +590,7 @@ export default function App() {
             </label>
             <select
               id="move-folder"
-              className="w-full rounded border border-line bg-white px-3 py-2 text-sm outline-none focus:border-stone-500"
+              className="w-full rounded border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-strong"
               value={moveFolderId ?? ""}
               onChange={(event) => setMoveFolderId(event.target.value || null)}
             >
@@ -612,7 +637,7 @@ export default function App() {
             </label>
             <input
               id="folder-name"
-              className="w-full rounded border border-line px-3 py-2 text-sm outline-none focus:border-stone-500 aria-invalid:border-red-700"
+              className="w-full rounded border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-strong aria-invalid:border-danger"
               value={folderDialog.name}
               maxLength={120}
               aria-invalid={Boolean(folderError)}
@@ -625,7 +650,7 @@ export default function App() {
             {folderError && (
               <p
                 id="folder-error"
-                className="mt-2 text-xs text-red-800"
+                className="mt-2 text-xs text-danger"
                 role="alert"
               >
                 {folderError}
