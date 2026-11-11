@@ -3,6 +3,7 @@ import { get, set } from "idb-keyval";
 import { migrateWorkspace, type Workspace } from "./workspace";
 
 const KEY = "ntbk:workspace:v1";
+const CLOUD_IMPORT_KEY = "ntbk:cloud-imported:v1";
 export const storageLabel = isTauri() ? "SQLite" : "IndexedDB";
 
 // One atomic snapshot keeps creation, deletion and edits consistent in both backends.
@@ -38,6 +39,15 @@ const connect = () =>
     throw error;
   }));
 let writes = Promise.resolve();
+
+export async function hasImportedWorkspaceToCloud(): Promise<boolean> {
+  if (isTauri()) return true;
+  return Boolean(await get(CLOUD_IMPORT_KEY));
+}
+
+export async function markWorkspaceImportedToCloud(): Promise<void> {
+  if (!isTauri()) await set(CLOUD_IMPORT_KEY, true);
+}
 
 export async function loadWorkspace(): Promise<Workspace | undefined> {
   return migrateWorkspace(await (await connect()).load());

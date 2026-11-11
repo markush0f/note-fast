@@ -25,7 +25,10 @@ import {
 } from "./components/icons";
 import { Button, iconButtonClass, MenuItems } from "./components/ui";
 import { createNote, type Note } from "./lib/notes";
-import { loadWorkspace, saveWorkspace } from "./lib/storage";
+import { hasImportedWorkspaceToCloud, loadWorkspace, markWorkspaceImportedToCloud } from "./lib/storage";
+import { currentUser, loadCloudWorkspace, saveCloudWorkspace, signOut } from "./lib/cloud";
+import AuthScreen from "./components/AuthScreen";
+import { isTauri } from "@tauri-apps/api/core";
 import {
   createFolder,
   deleteForever,
@@ -84,6 +87,8 @@ export default function App() {
   const [moveFolderId, setMoveFolderId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [authState, setAuthState] = useState<"checking" | "signed-out" | "signed-in">("checking");
+  const [userEmail, setUserEmail] = useState("");
   const [loadError, setLoadError] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saving" | "saved" | "error">(
     "saved",
@@ -144,38 +149,51 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (isTauri()) return;
     let cancelled = false;
-    void loadWorkspace()
-      .then((stored) => {
-        if (cancelled) return;
-        const initial = purgeTrash(
-          stored ?? {
-            version: 2,
-            notes: [createNote()],
-            folders: [],
-          },
-        );
-        const first = initial.notes.find((note) => !note.deletedAt);
-        setWorkspace(initial);
-        setSelectedId(first?.id ?? null);
-        setExplorerSelection(first ? { kind: "note", id: first.id } : null);
-        setActiveFolderId(first?.folderId ?? null);
-        setLoaded(true);
-      })
-      .catch((error: unknown) => {
-        console.error(error);
-        if (!cancelled) setLoadError(true);
-      });
-    return () => {
-      cancelled = true;
-    };
+    void currentUser().then((user) => {
+      if (!cancelled) { setUserEmail(user.email); setAuthState("signed-in"); }
+    }).catch(() => { if (!cancelled) setAuthState("signed-out"); });
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (authState !== "signed-in") return;
+    let cancelled = false;
+    void (async () => {
+      const remote = await loadCloudWorkspace();
+      let initial = remote;
+      if (!initial && !(await hasImportedWorkspaceToCloud())) {
+        // Importar una sola vez en este navegador; conservar copia local.
+        initial = await loadWorkspace();
+      }
+      if (!initial) initial = { version: 2, notes: [createNote()], folders: [] };
+      if (!remote) await saveCloudWorkspace(initial);
+      await markWorkspaceImportedToCloud();
+      if (cancelled) return;
+      initial = purgeTrash(initial ?? {
+        version: 2,
+        notes: [createNote()],
+        folders: [],
+      });
+      const first = initial.notes.find((note) => !note.deletedAt);
+      setWorkspace(initial);
+      setSelectedId(first?.id ?? null);
+      setExplorerSelection(first ? { kind: "note", id: first.id } : null);
+      setActiveFolderId(first?.folderId ?? null);
+      setLoaded(true);
+    })().catch((error: unknown) => {
+      console.error(error);
+      if (!cancelled) setLoadError(true);
+    });
+    return () => { cancelled = true; };
+  }, [authState]);
 
   useEffect(() => {
     if (!loaded) return;
     let cancelled = false;
     setSaveStatus("saving");
-    void saveWorkspace(workspace)
+    void saveCloudWorkspace(workspace)
       .then(() => {
         if (!cancelled) setSaveStatus("saved");
       })
@@ -320,6 +338,15 @@ export default function App() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  if (isTauri())
+    return <main className="grid min-h-dvh place-items-center p-6 text-center text-muted"><div><h1 className="mb-2 text-lg text-ink">Acceso con cuenta aún no disponible</h1><p>Inicia sesión desde la versión web para acceder a tus notas sincronizadas.</p></div></main>;
+  if (authState === "checking")
+    return <main className="grid min-h-dvh place-items-center text-muted" role="status">Comprobando sesión…</main>;
+  if (authState === "signed-out")
+    return <AuthScreen onAuthenticated={() => {
+      void currentUser().then((user) => { setUserEmail(user.email); setLoaded(false); setAuthState("signed-in"); });
+    }} />;
+
   if (loadError)
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center text-muted">
@@ -443,6 +470,10 @@ export default function App() {
             <Settings size={16} />
             Ajustes
           </Button>
+          <p className="truncate px-2 py-1 text-[11px] text-muted" title={userEmail}>{userEmail}</p>
+          <Button variant="menu" onClick={() => {
+            void signOut().then(() => { setLoaded(false); setAuthState("signed-out"); });
+          }}>Cerrar sesión</Button>
         </div>
       </aside>
 

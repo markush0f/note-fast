@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { clear, get, set } from "idb-keyval";
 import { createNote } from "./notes";
-import { loadWorkspace, saveWorkspace, storageLabel } from "./storage";
+import { hasImportedWorkspaceToCloud, loadWorkspace, markWorkspaceImportedToCloud, saveWorkspace, storageLabel } from "./storage";
 import { createFolder, type Workspace } from "./workspace";
 
 const empty = (): Workspace => ({ version: 2, notes: [], folders: [] });
@@ -11,6 +11,14 @@ beforeEach(async () => {
 });
 
 describe("IndexedDB persistence", () => {
+  it("remembers that local notes were imported to an account without deleting them", async () => {
+    const workspace = { ...empty(), notes: [createNote()] };
+    await saveWorkspace(workspace);
+    expect(await hasImportedWorkspaceToCloud()).toBe(false);
+    await markWorkspaceImportedToCloud();
+    expect(await hasImportedWorkspaceToCloud()).toBe(true);
+    expect(await loadWorkspace()).toEqual(workspace);
+  });
   it("distinguishes an unused workspace from an intentionally empty one", async () => {
     expect(storageLabel).toBe("IndexedDB");
     expect(await loadWorkspace()).toBeUndefined();
