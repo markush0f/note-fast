@@ -55,6 +55,26 @@ describe("IndexedDB persistence", () => {
     expect((await loadWorkspace())?.toolbarPosition).toBe("top-left");
     expect((await loadWorkspace())?.notes).toEqual([note]);
   });
+  it("roundtrips a freely positioned toolbar without losing appearance", async () => {
+    const workspace: Workspace = {
+      ...empty(),
+      theme: "dark",
+      toolbarPosition: { x: 0.31, y: 0.64 },
+    };
+    await saveWorkspace(workspace);
+    expect(await loadWorkspace()).toEqual(workspace);
+  });
+  it("saves both themes without losing layout preferences", async () => {
+    const workspace: Workspace = {
+      ...empty(),
+      theme: "dark",
+      toolbarPosition: "bottom-left",
+    };
+    await saveWorkspace(workspace);
+    expect(await loadWorkspace()).toEqual(workspace);
+    await saveWorkspace({ ...workspace, theme: "light" });
+    expect(await loadWorkspace()).toEqual({ ...workspace, theme: "light" });
+  });
   it("serializes concurrent snapshots so the newest one wins", async () => {
     const note = createNote();
     await Promise.all([

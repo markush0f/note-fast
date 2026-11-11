@@ -1,5 +1,6 @@
 import type { Note } from "./notes";
-import { isToolbarPosition, type ToolbarPosition } from "./editor-layout";
+import { isTheme, type Theme } from "./theme";
+import { isToolbarPlacement, type ToolbarPlacement } from "./editor-layout";
 import {
   isItemIconId,
   normalizeItemIcon,
@@ -17,7 +18,8 @@ export interface Workspace {
   version: 2;
   notes: Note[];
   folders: Folder[];
-  toolbarPosition?: ToolbarPosition;
+  toolbarPosition?: ToolbarPlacement;
+  theme?: Theme;
 }
 
 export function createFolder(
@@ -89,7 +91,8 @@ export function migrateWorkspace(value: unknown): Workspace | undefined {
         note.folderId && folderIds.has(note.folderId) ? note.folderId : null,
     })),
     folders: folders.map(normalizeItemIcon),
-    ...(isToolbarPosition(source?.toolbarPosition)
+    ...(isTheme(source?.theme) ? { theme: source.theme } : {}),
+    ...(isToolbarPlacement(source?.toolbarPosition)
       ? { toolbarPosition: source.toolbarPosition }
       : {}),
   };

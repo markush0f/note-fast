@@ -1,0 +1,59 @@
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { applyTheme, getInitialTheme, isTheme, THEME_CACHE_KEY } from "./theme";
+import { createNote } from "./notes";
+import { migrateWorkspace } from "./workspace";
+
+beforeEach(() => {
+  localStorage.clear();
+  delete document.documentElement.dataset.theme;
+  vi.restoreAllMocks();
+});
+
+describe("appearance preference", () => {
+  it("defaults to light and recognizes only supported themes", () => {
+    expect(getInitialTheme()).toBe("light");
+    expect(isTheme("light")).toBe(true);
+    expect(isTheme("dark")).toBe(true);
+    for (const value of [undefined, null, "system", {}, 1])
+      expect(isTheme(value)).toBe(false);
+    localStorage.setItem(THEME_CACHE_KEY, "unsupported");
+    expect(getInitialTheme()).toBe("light");
+  });
+  it("applies and caches each appearance", () => {
+    applyTheme("dark");
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(getInitialTheme()).toBe("dark");
+    applyTheme("light");
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(getInitialTheme()).toBe("light");
+  });
+  it("still changes the appearance if the first-paint cache is blocked", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    expect(getInitialTheme()).toBe("light");
+    expect(() => applyTheme("dark")).not.toThrow();
+    expect(document.documentElement.dataset.theme).toBe("dark");
+  });
+  it("loads saved appearance without changing existing notes or toolbar preferences", () => {
+    const workspace = {
+      version: 2 as const,
+      notes: [createNote()],
+      folders: [],
+      toolbarPosition: "bottom-left" as const,
+    };
+    expect(migrateWorkspace(workspace)).toEqual(workspace);
+    for (const theme of ["light", "dark"])
+      expect(migrateWorkspace({ ...workspace, theme })).toEqual({
+        ...workspace,
+        theme,
+      });
+    expect(migrateWorkspace({ ...workspace, theme: "unsupported" })).toEqual(
+      workspace,
+    );
+  });
+});

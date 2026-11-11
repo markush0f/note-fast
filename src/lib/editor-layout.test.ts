@@ -3,8 +3,11 @@ import {
   DEFAULT_TOOLBAR_POSITION,
   TOOLBAR_POSITIONS,
   isToolbarPosition,
-  getToolbarDropPosition,
+  getToolbarPlacementCorner,
   getToolbarDragOffset,
+  getToolbarCoordinates,
+  getToolbarPoint,
+  isToolbarPlacement,
 } from "./editor-layout";
 import { createNote } from "./notes";
 import {
@@ -15,12 +18,60 @@ import {
 } from "./workspace";
 
 describe("toolbar layout preferences", () => {
-  it("snaps a pointer to the correct editor corner", () => {
-    const bounds = { left: 200, top: 60, width: 800, height: 600 };
-    expect(getToolbarDropPosition(220, 80, bounds)).toBe("top-left");
-    expect(getToolbarDropPosition(980, 80, bounds)).toBe("top-right");
-    expect(getToolbarDropPosition(220, 640, bounds)).toBe("bottom-left");
-    expect(getToolbarDropPosition(980, 640, bounds)).toBe("bottom-right");
+  it("orients the position menu without snapping the toolbar", () => {
+    expect(getToolbarPlacementCorner({ x: 0.2, y: 0.3 })).toBe("top-left");
+    expect(getToolbarPlacementCorner({ x: 0.7, y: 0.3 })).toBe("top-right");
+    expect(getToolbarPlacementCorner({ x: 0.2, y: 0.8 })).toBe("bottom-left");
+    expect(getToolbarPlacementCorner({ x: 0.7, y: 0.8 })).toBe("bottom-right");
+  });
+  it("roundtrips arbitrary coordinates without snapping to corners", () => {
+    const bounds = { width: 800, height: 600 };
+    const toolbar = { width: 250, height: 44 };
+    const point = { x: 0.37, y: 0.42 };
+    const pixels = getToolbarCoordinates(point, bounds, toolbar);
+    expect(pixels.x).toBeCloseTo(206.62);
+    expect(pixels.y).toBeCloseTo(235.44);
+    const restored = getToolbarPoint(pixels.x, pixels.y, bounds, toolbar);
+    expect(restored.x).toBeCloseTo(point.x);
+    expect(restored.y).toBeCloseTo(point.y);
+    expect(getToolbarCoordinates("bottom-right", bounds, toolbar)).toEqual({
+      x: 538,
+      y: 544,
+    });
+  });
+  it("keeps free positions accessible after resizing or expanding", () => {
+    const toolbar = { width: 326, height: 76 };
+    const pixels = getToolbarCoordinates(
+      { x: 0.9, y: 0.8 },
+      { width: 350, height: 400 },
+      toolbar,
+    );
+    expect(pixels.x).toBe(12);
+    expect(pixels.y).toBeCloseTo(252);
+    expect(
+      getToolbarPoint(-500, 5000, { width: 350, height: 400 }, toolbar),
+    ).toEqual({ x: 0, y: 1 });
+  });
+  it("validates normalized positions and loads them alongside old corner preferences", () => {
+    for (const invalid of [
+      { x: NaN, y: 0 },
+      { x: Infinity, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 2 },
+      { x: "0.5", y: 0 },
+    ])
+      expect(isToolbarPlacement(invalid)).toBe(false);
+    const workspace: Workspace = {
+      version: 2,
+      notes: [],
+      folders: [],
+      toolbarPosition: { x: 0.37, y: 0.42 },
+    };
+    expect(migrateWorkspace(JSON.parse(JSON.stringify(workspace)))).toEqual(
+      workspace,
+    );
+    expect(isToolbarPlacement("top-left")).toBe(true);
+    expect(isToolbarPlacement(workspace.toolbarPosition)).toBe(true);
   });
   it("keeps the dragged toolbar inside the editor", () => {
     const bounds = { left: 200, top: 60, width: 800, height: 600 };
