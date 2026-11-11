@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   ArrowLeft,
+  SidebarToggle,
   Check,
   WarningCircle,
   Download,
@@ -406,7 +407,7 @@ export default function App() {
               aria-expanded={sidebarVisible}
               onClick={() => setSidebarVisible(false)}
             >
-              <ArrowLeft size={17} />
+              <SidebarToggle size={18} />
             </Button>
           </div>
         </header>
@@ -499,7 +500,7 @@ export default function App() {
             title="Mostrar barra lateral"
             aria-expanded={false}
             onClick={() => setSidebarVisible(true)}
-          ><ArrowLeft size={17} className="rotate-180" /></Button>}
+          ><SidebarToggle size={18} collapsed /></Button>}
           <Button
             variant="icon"
             className="min-[651px]:hidden"

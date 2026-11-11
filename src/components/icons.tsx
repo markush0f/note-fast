@@ -69,6 +69,16 @@ function icon(Component: typeof ArrowLeftIcon) {
   };
 }
 export type IconComponent = ReturnType<typeof icon>;
+
+export function SidebarToggle({ size = 18, collapsed = false, ...props }: IconProps & { collapsed?: boolean }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" {...props}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <path d="M9 5v14" />
+      {collapsed ? <path d="m5.5 10 2 2-2 2" /> : <path d="m7.5 10-2 2 2 2" />}
+    </svg>
+  );
+}
 export const ArrowLeft = icon(ArrowLeftIcon);
 export const Check = icon(CheckIcon);
 export const WarningCircle = icon(WarningCircleIcon);
