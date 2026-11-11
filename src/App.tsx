@@ -9,23 +9,46 @@ import {
 import {
   ArrowLeft,
   Check,
-  CircleAlert,
+  WarningCircle,
   Download,
-  Ellipsis,
-  LoaderCircle,
+  MoreHoriz,
+  Refresh,
+  FolderPlus,
   Plus,
   Search,
   Star,
-  Trash2,
-  X,
-} from "lucide-react";
-import { createNote, filterNotes, plainText, type Note } from "./lib/notes";
-import { loadNotes, saveNotes } from "./lib/storage";
+  Trash,
+  Xmark,
+} from "./components/icons";
+import { Button, iconButtonClass, MenuItems } from "./components/ui";
+import { createNote, type Note } from "./lib/notes";
+import { loadWorkspace, saveWorkspace } from "./lib/storage";
+import {
+  createFolder,
+  deleteFolder,
+  type Folder,
+  type Workspace,
+} from "./lib/workspace";
+import FileExplorer from "./components/FileExplorer";
+import Dialog from "./components/Dialog";
 
 const NoteEditor = lazy(() => import("./components/NoteEditor"));
 
 export default function App() {
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [workspace, setWorkspace] = useState<Workspace>({
+    version: 2,
+    notes: [],
+    folders: [],
+  });
+  const { notes, folders } = workspace;
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [folderDialog, setFolderDialog] = useState<{
+    id?: string;
+    parentId: string | null;
+    name: string;
+  } | null>(null);
+  const [folderError, setFolderError] = useState("");
+  const [deleteFolderId, setDeleteFolderId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -41,16 +64,60 @@ export default function App() {
   const actionsRef = useRef<HTMLDetailsElement>(null);
   const actionsButtonRef = useRef<HTMLElement>(null);
   const selected = notes.find((note) => note.id === selectedId);
-  const visible = filterNotes(notes, query, favorites);
+
+  const openFolderDialog = (parentId: string | null, folder?: Folder) => {
+    setFolderError("");
+    setFolderDialog({ id: folder?.id, parentId, name: folder?.name ?? "" });
+  };
+
+  const saveFolder = () => {
+    if (!folderDialog) return;
+    const name = folderDialog.name.trim();
+    if (!name) {
+      setFolderError("Escribe un nombre.");
+      return;
+    }
+    if (
+      folders.some(
+        (folder) =>
+          folder.parentId === folderDialog.parentId &&
+          folder.id !== folderDialog.id &&
+          folder.name.toLocaleLowerCase("es") === name.toLocaleLowerCase("es"),
+      )
+    ) {
+      setFolderError("Ya existe una carpeta con ese nombre aquí.");
+      return;
+    }
+    const folder = folderDialog.id
+      ? { id: folderDialog.id, parentId: folderDialog.parentId, name }
+      : createFolder(name, folderDialog.parentId);
+    setWorkspace((previous) => ({
+      ...previous,
+      folders: folderDialog.id
+        ? previous.folders.map((item) =>
+            item.id === folder.id ? folder : item,
+          )
+        : [...previous.folders, folder],
+    }));
+    setActiveFolderId(folder.id);
+    setFavorites(false);
+    setQuery("");
+    setFolderDialog(null);
+  };
 
   useEffect(() => {
     let cancelled = false;
-    void loadNotes()
+    void loadWorkspace()
       .then((stored) => {
         if (cancelled) return;
-        const initial = stored ?? [createNote()];
-        setNotes(initial);
-        setSelectedId(initial[0]?.id ?? null);
+        const initial: Workspace = stored ?? {
+          version: 2,
+          notes: [createNote()],
+          folders: [],
+        };
+        setWorkspace(initial);
+        setSelectedId(initial.notes[0]?.id ?? null);
+        setActiveFolderId(initial.notes[0]?.folderId ?? null);
         setLoaded(true);
       })
       .catch((error: unknown) => {
@@ -66,7 +133,7 @@ export default function App() {
     if (!loaded) return;
     let cancelled = false;
     setSaveStatus("saving");
-    void saveNotes(notes)
+    void saveWorkspace(workspace)
       .then(() => {
         if (!cancelled) setSaveStatus("saved");
       })
@@ -77,17 +144,24 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [notes, loaded, retry]);
+  }, [workspace, loaded, retry]);
 
-  const addNote = useCallback(() => {
-    if (!loaded) return;
-    const note = createNote();
-    setNotes((previous) => [note, ...previous]);
-    setSelectedId(note.id);
-    setFavorites(false);
-    setQuery("");
-    setMobileEditor(true);
-  }, [loaded]);
+  const addNote = useCallback(
+    (folderId: string | null = activeFolderId) => {
+      if (!loaded) return;
+      const note = createNote(folderId);
+      setWorkspace((previous) => ({
+        ...previous,
+        notes: [note, ...previous.notes],
+      }));
+      setActiveFolderId(folderId);
+      setSelectedId(note.id);
+      setFavorites(false);
+      setQuery("");
+      setMobileEditor(true);
+    },
+    [loaded, activeFolderId],
+  );
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -128,23 +202,29 @@ export default function App() {
     id: string,
     changes: Partial<Pick<Note, "title" | "content" | "favorite">>,
   ) => {
-    setNotes((previous) =>
-      previous.map((note) =>
+    setWorkspace((previous) => ({
+      ...previous,
+      notes: previous.notes.map((note) =>
         note.id === id
           ? { ...note, ...changes, updatedAt: new Date().toISOString() }
           : note,
       ),
-    );
+    }));
   };
 
-  const removeNote = () => {
-    const remaining = notes.filter((note) => note.id !== deleteId);
-    setNotes(remaining);
-    if (selectedId === deleteId) {
-      setSelectedId(remaining[0]?.id ?? null);
+  const removeItem = () => {
+    const next = deleteFolderId
+      ? deleteFolder(workspace, deleteFolderId)
+      : { ...workspace, notes: notes.filter((note) => note.id !== deleteId) };
+    setWorkspace(next);
+    if (!next.notes.some((note) => note.id === selectedId)) {
+      setSelectedId(next.notes[0]?.id ?? null);
       setMobileEditor(false);
     }
+    if (!next.folders.some((folder) => folder.id === activeFolderId))
+      setActiveFolderId(null);
     setDeleteId(null);
+    setDeleteFolderId(null);
   };
 
   const exportNote = () => {
@@ -178,47 +258,62 @@ export default function App() {
 
   if (loadError)
     return (
-      <main className="loading-screen">
-        <CircleAlert size={24} />
-        <h1>No pudimos abrir tus notas</h1>
-        <p>
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center text-muted">
+        <WarningCircle size={24} />
+        <h1 className="text-lg text-ink">No pudimos abrir tus notas</h1>
+        <p className="max-w-100 text-[13px]">
           Comprueba el acceso al almacenamiento local. Tus datos no se han
           sobrescrito.
         </p>
-        <button
-          className="primary-button"
-          onClick={() => window.location.reload()}
-        >
+        <Button variant="primary" onClick={() => window.location.reload()}>
           Reintentar
-        </button>
+        </Button>
       </main>
     );
   if (!loaded)
     return (
-      <main className="loading-screen">
-        <LoaderCircle className="animate-spin" aria-label="Abriendo notas" />
+      <main
+        className="grid min-h-dvh place-items-center text-muted"
+        role="status"
+        aria-label="Abriendo notas"
+      >
+        <Refresh className="animate-spin motion-reduce:animate-none" />
       </main>
     );
 
   return (
-    <div className={`app-shell ${mobileEditor ? "show-editor" : ""}`}>
-      <aside className="notes-panel" aria-label="Lista de notas">
-        <header className="notes-heading">
-          <h1>Notas</h1>
-          <button
-            className="icon-button new-note"
-            title="Nueva nota (Ctrl+Alt+N)"
-            aria-label="Nueva nota"
-            onClick={addNote}
-          >
-            <Plus size={19} />
-          </button>
+    <div className="grid h-dvh grid-cols-1 overflow-hidden min-[651px]:grid-cols-[230px_minmax(0,1fr)] min-[901px]:grid-cols-[260px_minmax(0,1fr)]">
+      <aside
+        className={`${mobileEditor ? "hidden min-[651px]:flex" : "flex"} min-h-0 flex-col border-line bg-sidebar min-[651px]:border-r`}
+        aria-label="Lista de notas"
+      >
+        <header className="flex items-center justify-between px-5 pt-6 pb-4">
+          <h1 className="text-[15px] font-semibold">Notas</h1>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="icon"
+              title="Nueva carpeta"
+              aria-label="Nueva carpeta"
+              onClick={() => openFolderDialog(activeFolderId)}
+            >
+              <FolderPlus size={18} />
+            </Button>
+            <Button
+              variant="icon"
+              title="Nueva nota (Ctrl+Alt+N)"
+              aria-label="Nueva nota"
+              onClick={() => addNote()}
+            >
+              <Plus size={19} />
+            </Button>
+          </div>
         </header>
-        <div className="search-row">
-          <div className="search-box">
+        <div className="flex items-center gap-1.5 px-4 pb-4.5">
+          <div className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded border border-line px-2 text-stone-400 focus-within:border-stone-400">
             <Search size={15} />
             <input
               ref={searchRef}
+              className="min-w-0 w-full bg-transparent text-xs text-ink outline-none placeholder:text-stone-500"
               aria-label="Buscar notas"
               placeholder="Buscar"
               value={query}
@@ -226,78 +321,67 @@ export default function App() {
             />
             {query && (
               <button
-                className="icon-button"
+                className="flex size-5 shrink-0 cursor-pointer items-center justify-center rounded hover:bg-hover focus-visible:outline-2 focus-visible:outline-stone-500"
                 aria-label="Limpiar búsqueda"
                 onClick={() => setQuery("")}
               >
-                <X size={14} />
+                <Xmark size={14} />
               </button>
             )}
           </div>
-          <button
-            className={`icon-button ${favorites ? "is-active" : ""}`}
+          <Button
+            variant="icon"
             aria-label="Mostrar solo favoritas"
             aria-pressed={favorites}
             title="Solo favoritas"
             onClick={() => setFavorites((value) => !value)}
           >
             <Star size={16} fill={favorites ? "currentColor" : "none"} />
-          </button>
+          </Button>
         </div>
-        <div className="notes-list">
-          {visible.map((note) => (
-            <button
-              key={note.id}
-              className={`note-card ${selectedId === note.id ? "active" : ""}`}
-              aria-current={selectedId === note.id ? "true" : undefined}
-              onClick={() => {
-                setSelectedId(note.id);
-                setMobileEditor(true);
-              }}
-            >
-              <div className="note-card-title">
-                <span>{note.title || "Sin título"}</span>
-                {note.favorite && <Star size={12} fill="currentColor" />}
-              </div>
-              <p>{plainText(note.content) || "Nota vacía"}</p>
-            </button>
-          ))}
-          {!visible.length && (
-            <div className="empty-list">
-              <p>
-                {query
-                  ? "Sin resultados"
-                  : favorites
-                    ? "No hay favoritas"
-                    : "No hay notas"}
-              </p>
-              {!query && !favorites && (
-                <button className="text-button" onClick={addNote}>
-                  Crear nota
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        <FileExplorer
+          notes={notes}
+          folders={folders}
+          selectedId={selectedId}
+          activeFolderId={activeFolderId}
+          query={query}
+          favorites={favorites}
+          onSelect={(note) => {
+            setSelectedId(note.id);
+            setActiveFolderId(note.folderId);
+            setMobileEditor(true);
+          }}
+          onSelectFolder={setActiveFolderId}
+          onNewNote={addNote}
+          onNewFolder={openFolderDialog}
+          onRenameFolder={(folder) => openFolderDialog(folder.parentId, folder)}
+          onDeleteFolder={(folder) => setDeleteFolderId(folder.id)}
+        />
       </aside>
 
-      <main className="editor-panel">
-        <header className="document-header">
-          <button
-            className="icon-button mobile-back"
+      <main
+        className={`${mobileEditor ? "flex" : "hidden min-[651px]:flex"} min-h-0 min-w-0 flex-col`}
+      >
+        <header className="flex min-h-14.5 shrink-0 items-center gap-2.5 px-3.5 min-[651px]:min-h-16 min-[651px]:px-5.5 min-[901px]:px-7">
+          <Button
+            variant="icon"
+            className="min-[651px]:hidden"
             aria-label="Volver a las notas"
             onClick={() => setMobileEditor(false)}
           >
             <ArrowLeft size={18} />
-          </button>
+          </Button>
           <div
-            className={`save-status ${saveStatus === "error" ? "save-error" : ""}`}
+            className={`flex items-center gap-1.5 text-[11px] ${saveStatus === "error" ? "text-red-800" : "text-stone-500"}`}
             role="status"
           >
             {saveStatus === "error" ? (
-              <CircleAlert size={13} />
+              <WarningCircle size={13} />
             ) : saveStatus === "saving" ? (
-              <LoaderCircle size={13} className="animate-spin" />
+              <Refresh
+                size={13}
+                className="animate-spin motion-reduce:animate-none"
+              />
             ) : (
               <Check size={13} />
             )}
@@ -309,17 +393,18 @@ export default function App() {
                   : "No se pudo guardar"}
             </span>
             {saveStatus === "error" && (
-              <button
-                className="text-button"
+              <Button
+                variant="text"
+                className="ml-1"
                 onClick={() => setRetry((value) => value + 1)}
               >
                 Reintentar
-              </button>
+              </Button>
             )}
           </div>
           {selected && (
             <details
-              className="note-actions"
+              className="relative ml-auto"
               ref={actionsRef}
               key={selected.id}
               onKeyDown={(event) => {
@@ -331,14 +416,15 @@ export default function App() {
             >
               <summary
                 ref={actionsButtonRef}
-                className="icon-button"
+                className={`${iconButtonClass} list-none [&::-webkit-details-marker]:hidden`}
                 aria-label="Opciones de la nota"
                 title="Opciones de la nota"
               >
-                <Ellipsis size={20} />
+                <MoreHoriz size={20} />
               </summary>
-              <div className="actions-popover">
-                <button
+              <MenuItems>
+                <Button
+                  variant="menu"
                   onClick={() => {
                     updateNote(selected.id, { favorite: !selected.favorite });
                     closeActions();
@@ -348,8 +434,9 @@ export default function App() {
                   {selected.favorite
                     ? "Quitar de favoritas"
                     : "Añadir a favoritas"}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="menu"
                   aria-label="Exportar nota como HTML"
                   onClick={() => {
                     exportNote();
@@ -358,27 +445,27 @@ export default function App() {
                 >
                   <Download size={15} />
                   Exportar HTML
-                </button>
-                <button
-                  className="delete-button"
+                </Button>
+                <Button
+                  variant="menuDanger"
                   onClick={() => {
                     closeActions();
                     setDeleteId(selected.id);
                   }}
                 >
-                  <Trash2 size={15} />
+                  <Trash size={15} />
                   Eliminar nota
-                </button>
-              </div>
+                </Button>
+              </MenuItems>
             </details>
           )}
         </header>
         {selected ? (
-          <div className="document-scroll">
-            <article className="document">
+          <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+            <article className="mx-auto w-full max-w-190 px-6 pt-6 pb-15 min-[651px]:px-8 min-[651px]:pt-8 min-[651px]:pb-18 min-[901px]:px-12 min-[901px]:pt-11 min-[901px]:pb-25">
               <input
                 key={`title-${selected.id}`}
-                className="title-input"
+                className="block w-full bg-transparent p-0 text-[28px] leading-snug font-semibold tracking-tight outline-none placeholder:text-stone-400 min-[651px]:text-3xl"
                 aria-label="Título de la nota"
                 placeholder="Sin título"
                 value={selected.title}
@@ -387,7 +474,11 @@ export default function App() {
                 }
               />
               <Suspense
-                fallback={<p className="editor-loading">Cargando editor…</p>}
+                fallback={
+                  <p className="mt-7 text-[13px] text-muted">
+                    Cargando editor…
+                  </p>
+                }
               >
                 <NoteEditor
                   key={selected.id}
@@ -398,63 +489,88 @@ export default function App() {
             </article>
           </div>
         ) : (
-          <div className="blank-editor">
-            <button className="primary-button" onClick={addNote}>
+          <div className="grid flex-1 place-content-center p-6">
+            <Button variant="primary" onClick={() => addNote()}>
               <Plus size={16} /> Nueva nota
-            </button>
+            </Button>
           </div>
         )}
       </main>
 
-      {deleteId && (
-        <div
-          className="modal-overlay"
-          onClick={() => {
-            setDeleteId(null);
-            actionsButtonRef.current?.focus();
-          }}
+      {folderDialog && (
+        <Dialog
+          title={folderDialog.id ? "Renombrar carpeta" : "Nueva carpeta"}
+          onClose={() => setFolderDialog(null)}
         >
-          <section
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="delete-heading"
-            aria-describedby="delete-description"
-            className="dialog"
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                setDeleteId(null);
-                actionsButtonRef.current?.focus();
-              }
-              if (event.key === "Tab") {
-                event.preventDefault();
-                const buttons = event.currentTarget.querySelectorAll("button");
-                (document.activeElement === buttons[0]
-                  ? buttons[1]
-                  : buttons[0]
-                ).focus();
-              }
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveFolder();
             }}
           >
-            <h2 id="delete-heading">¿Eliminar nota?</h2>
-            <p id="delete-description">Esta acción no se puede deshacer.</p>
-            <div className="dialog-actions">
-              <button
-                autoFocus
-                className="secondary-button"
-                onClick={() => {
-                  setDeleteId(null);
-                  actionsButtonRef.current?.focus();
-                }}
+            <label
+              className="mb-2 mt-4 block text-xs text-muted"
+              htmlFor="folder-name"
+            >
+              Nombre
+            </label>
+            <input
+              id="folder-name"
+              className="w-full rounded border border-line px-3 py-2 text-sm outline-none focus:border-stone-500 aria-invalid:border-red-700"
+              value={folderDialog.name}
+              maxLength={120}
+              aria-invalid={Boolean(folderError)}
+              aria-describedby={folderError ? "folder-error" : undefined}
+              onChange={(event) => {
+                setFolderError("");
+                setFolderDialog({ ...folderDialog, name: event.target.value });
+              }}
+            />
+            {folderError && (
+              <p
+                id="folder-error"
+                className="mt-2 text-xs text-red-800"
+                role="alert"
               >
-                Cancelar
-              </button>
-              <button className="danger-button" onClick={removeNote}>
-                Eliminar nota
-              </button>
+                {folderError}
+              </p>
+            )}
+            <div className="mt-6 flex justify-end gap-2">
+              <Button onClick={() => setFolderDialog(null)}>Cancelar</Button>
+              <Button variant="primary" type="submit">
+                {folderDialog.id ? "Guardar" : "Crear carpeta"}
+              </Button>
             </div>
-          </section>
-        </div>
+          </form>
+        </Dialog>
+      )}
+      {(deleteId || deleteFolderId) && (
+        <Dialog
+          title={deleteFolderId ? "¿Eliminar carpeta?" : "¿Eliminar nota?"}
+          description={
+            deleteFolderId
+              ? "Se eliminarán todas sus subcarpetas y notas. Esta acción no se puede deshacer."
+              : "Esta acción no se puede deshacer."
+          }
+          onClose={() => {
+            setDeleteId(null);
+            setDeleteFolderId(null);
+          }}
+        >
+          <div className="mt-6 flex justify-end gap-2">
+            <Button
+              onClick={() => {
+                setDeleteId(null);
+                setDeleteFolderId(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={removeItem}>
+              {deleteFolderId ? "Eliminar carpeta" : "Eliminar nota"}
+            </Button>
+          </div>
+        </Dialog>
       )}
     </div>
   );

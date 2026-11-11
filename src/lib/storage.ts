@@ -1,6 +1,6 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { get, set } from "idb-keyval";
-import type { Note } from "./notes";
+import { migrateWorkspace, type Workspace } from "./workspace";
 
 const KEY = "ntbk:workspace:v1";
 export const storageLabel = isTauri() ? "SQLite" : "IndexedDB";
@@ -9,23 +9,23 @@ export const storageLabel = isTauri() ? "SQLite" : "IndexedDB";
 async function backend() {
   if (!isTauri()) {
     return {
-      load: async (): Promise<Note[] | undefined> => get<Note[]>(KEY),
-      save: async (notes: Note[]) => set(KEY, notes),
+      load: async (): Promise<unknown> => get(KEY),
+      save: async (workspace: Workspace) => set(KEY, workspace),
     };
   }
   const { default: Database } = await import("@tauri-apps/plugin-sql");
   const db = await Database.load("sqlite:ntbk.db");
   return {
-    load: async (): Promise<Note[] | undefined> => {
+    load: async (): Promise<unknown> => {
       const rows = await db.select<{ payload: string }[]>(
         "SELECT payload FROM workspace WHERE id = 1",
       );
-      return rows.length ? (JSON.parse(rows[0].payload) as Note[]) : undefined;
+      return rows.length ? (JSON.parse(rows[0].payload) as unknown) : undefined;
     },
-    save: async (notes: Note[]) => {
+    save: async (workspace: Workspace) => {
       await db.execute(
         "INSERT INTO workspace (id, payload) VALUES (1, $1) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload",
-        [JSON.stringify(notes)],
+        [JSON.stringify(workspace)],
       );
     },
   };
@@ -39,16 +39,16 @@ const connect = () =>
   }));
 let writes = Promise.resolve();
 
-export async function loadNotes(): Promise<Note[] | undefined> {
-  return (await connect()).load();
+export async function loadWorkspace(): Promise<Workspace | undefined> {
+  return migrateWorkspace(await (await connect()).load());
 }
 
-export function saveNotes(notes: Note[]): Promise<void> {
+export function saveWorkspace(workspace: Workspace): Promise<void> {
   // Serialize writes so an older snapshot never overwrites a newer one.
   writes = writes
     .catch(() => {})
     .then(async () => {
-      await (await connect()).save(notes);
+      await (await connect()).save(workspace);
     });
   return writes;
 }
