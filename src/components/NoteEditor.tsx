@@ -1,11 +1,11 @@
-import { useRef } from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { useState, useRef } from "react";
+import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { TextStyle, FontSize, Color } from "@tiptap/extension-text-style";
-import type { Note } from "../lib/notes";
+import { characterCount, wordCount, type Note } from "../lib/notes";
 import type { ToolbarPlacement } from "../lib/editor-layout";
 import FloatingToolbar from "./FloatingToolbar";
 
@@ -40,6 +40,7 @@ export default function NoteEditor({
   onToolbarPositionChange,
 }: Props) {
   const boundaryRef = useRef<HTMLDivElement>(null);
+  const [writing, setWriting] = useState(false);
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -65,8 +66,25 @@ export default function NoteEditor({
         role: "textbox",
         "aria-multiline": "true",
       },
+      handleDOMEvents: {
+        focus: () => {
+          setWriting(true);
+          return false;
+        },
+        blur: () => {
+          setWriting(false);
+          return false;
+        },
+      },
     },
   });
+
+  const text = useEditorState({
+    editor,
+    selector: ({ editor }) => editor.getText(),
+  });
+  const words = wordCount(text ?? "");
+  const characters = characterCount(text ?? "");
 
   if (!editor) return null;
   return (
@@ -91,10 +109,19 @@ export default function NoteEditor({
             placeholder="Sin título"
             value={note.title}
             onChange={(event) => onTitleChange(event.target.value)}
+            onFocus={() => setWriting(true)}
+            onBlur={() => setWriting(false)}
           />
           <EditorContent editor={editor} className="mt-6" />
         </article>
       </div>
+      <p
+        className={`pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] text-faint ${writing ? "opacity-100" : "opacity-0"}`}
+        aria-hidden={writing ? undefined : true}
+      >
+        {words === 1 ? "1 palabra" : `${words} palabras`} ·{" "}
+        {characters === 1 ? "1 carácter" : `${characters} caracteres`}
+      </p>
     </div>
   );
 }

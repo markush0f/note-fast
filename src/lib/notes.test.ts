@@ -5,6 +5,7 @@ import {
   filterNotes,
   plainText,
   welcomeNote,
+  characterCount,
   wordCount,
 } from "./notes";
 
@@ -27,6 +28,8 @@ describe("notes", () => {
   it("counts whitespace-separated words", () => {
     expect(wordCount(" \n ")).toBe(0);
     expect(wordCount("  una idea\npara mañana  ")).toBe(4);
+    expect(characterCount("café")).toBe(4);
+    expect(characterCount("")).toBe(0);
   });
   it("searches title and content ignoring case and accents", () => {
     const note = {

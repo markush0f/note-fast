@@ -38,6 +38,10 @@ export function wordCount(text: string): number {
   return text.trim() ? text.trim().split(/\s+/u).length : 0;
 }
 
+export function characterCount(text: string): number {
+  return [...text].length;
+}
+
 export function filterNotes(
   notes: Note[],
   query: string,
