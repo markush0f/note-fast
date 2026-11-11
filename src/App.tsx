@@ -96,6 +96,7 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [favorites, setFavorites] = useState(false);
   const [mobileEditor, setMobileEditor] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -373,9 +374,9 @@ export default function App() {
     );
 
   return (
-    <div className="grid h-dvh grid-cols-1 overflow-hidden min-[651px]:grid-cols-[230px_minmax(0,1fr)] min-[901px]:grid-cols-[260px_minmax(0,1fr)]">
+    <div className={`app-shell h-dvh overflow-hidden ${sidebarVisible ? "sidebar-expanded" : "sidebar-collapsed"}`}>
       <aside
-        className={`${mobileEditor ? "hidden min-[651px]:flex" : "flex"} min-h-0 flex-col border-line bg-sidebar min-[651px]:border-r`}
+        className={`app-sidebar ${mobileEditor ? "hidden min-[651px]:flex" : "flex"} min-h-0 flex-col border-line bg-sidebar min-[651px]:border-r`}
         aria-label="Lista de notas"
       >
         <header className="flex items-center justify-between px-5 pt-6 pb-4">
@@ -396,6 +397,16 @@ export default function App() {
               onClick={() => addNote()}
             >
               <Plus size={19} />
+            </Button>
+            <Button
+              variant="icon"
+              className="hidden min-[651px]:inline-flex"
+              title="Ocultar barra lateral"
+              aria-label="Ocultar barra lateral"
+              aria-expanded={sidebarVisible}
+              onClick={() => setSidebarVisible(false)}
+            >
+              <ArrowLeft size={17} />
             </Button>
           </div>
         </header>
@@ -481,6 +492,14 @@ export default function App() {
         className={`${mobileEditor ? "flex" : "hidden min-[651px]:flex"} min-h-0 min-w-0 flex-col`}
       >
         <header className="flex min-h-14.5 shrink-0 items-center gap-2.5 px-3.5 min-[651px]:min-h-16 min-[651px]:px-5.5 min-[901px]:px-7">
+          {!sidebarVisible && <Button
+            variant="icon"
+            className="hidden min-[651px]:inline-flex"
+            aria-label="Mostrar barra lateral"
+            title="Mostrar barra lateral"
+            aria-expanded={false}
+            onClick={() => setSidebarVisible(true)}
+          ><ArrowLeft size={17} className="rotate-180" /></Button>}
           <Button
             variant="icon"
             className="min-[651px]:hidden"
