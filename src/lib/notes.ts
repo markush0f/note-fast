@@ -2,17 +2,19 @@ export interface Note {
   id: string;
   title: string;
   content: string;
+  folderId: string | null;
   favorite: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-export function createNote(): Note {
+export function createNote(folderId: string | null = null): Note {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
     title: "",
     content: "",
+    folderId,
     favorite: false,
     createdAt: now,
     updatedAt: now,
