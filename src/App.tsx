@@ -15,6 +15,7 @@ import {
   Refresh,
   FolderPlus,
   Folder as FolderIcon,
+  Palette,
   Plus,
   Search,
   Star,
@@ -29,11 +30,14 @@ import {
   deleteFolder,
   folderPath,
   moveNote,
+  setItemIcon,
   type Folder,
   type Workspace,
 } from "./lib/workspace";
 import FileExplorer from "./components/FileExplorer";
 import Dialog from "./components/Dialog";
+import IconPicker from "./components/IconPicker";
+import type { ItemTarget } from "./lib/item-icons";
 
 const NoteEditor = lazy(() => import("./components/NoteEditor"));
 
@@ -51,6 +55,7 @@ export default function App() {
     name: string;
   } | null>(null);
   const [folderError, setFolderError] = useState("");
+  const [iconTarget, setIconTarget] = useState<ItemTarget | null>(null);
   const [deleteFolderId, setDeleteFolderId] = useState<string | null>(null);
   const [moveId, setMoveId] = useState<string | null>(null);
   const [moveFolderId, setMoveFolderId] = useState<string | null>(null);
@@ -69,6 +74,10 @@ export default function App() {
   const actionsRef = useRef<HTMLDetailsElement>(null);
   const actionsButtonRef = useRef<HTMLElement>(null);
   const selected = notes.find((note) => note.id === selectedId);
+  const iconItem =
+    iconTarget?.kind === "note"
+      ? notes.find((note) => note.id === iconTarget.id)
+      : folders.find((folder) => folder.id === iconTarget?.id);
 
   const openFolderDialog = (parentId: string | null, folder?: Folder) => {
     setFolderError("");
@@ -94,7 +103,7 @@ export default function App() {
       return;
     }
     const folder = folderDialog.id
-      ? { id: folderDialog.id, parentId: folderDialog.parentId, name }
+      ? { ...folders.find((item) => item.id === folderDialog.id)!, name }
       : createFolder(name, folderDialog.parentId);
     setWorkspace((previous) => ({
       ...previous,
@@ -366,6 +375,9 @@ export default function App() {
           onNewNote={addNote}
           onNewFolder={openFolderDialog}
           onRenameFolder={(folder) => openFolderDialog(folder.parentId, folder)}
+          onChangeFolderIcon={(folder) =>
+            setIconTarget({ kind: "folder", id: folder.id })
+          }
           onDeleteFolder={(folder) => setDeleteFolderId(folder.id)}
         />
       </aside>
@@ -459,6 +471,16 @@ export default function App() {
                 </Button>
                 <Button
                   variant="menu"
+                  onClick={() => {
+                    closeActions();
+                    setIconTarget({ kind: "note", id: selected.id });
+                  }}
+                >
+                  <Palette size={15} />
+                  Cambiar icono
+                </Button>
+                <Button
+                  variant="menu"
                   aria-label="Exportar nota como HTML"
                   onClick={() => {
                     exportNote();
@@ -519,6 +541,19 @@ export default function App() {
         )}
       </main>
 
+      {iconTarget && iconItem && (
+        <IconPicker
+          name={
+            "title" in iconItem ? iconItem.title || "Sin título" : iconItem.name
+          }
+          value={iconItem.icon}
+          onClose={() => setIconTarget(null)}
+          onSelect={(icon) => {
+            setWorkspace((previous) => setItemIcon(previous, iconTarget, icon));
+            setIconTarget(null);
+          }}
+        />
+      )}
       {moveId && (
         <Dialog title="Mover nota" onClose={() => setMoveId(null)}>
           <form

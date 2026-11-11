@@ -3,7 +3,7 @@ import {
   NavArrowDown,
   NavArrowRight,
   MoreHoriz,
-  Page,
+  Palette,
   Folder as FolderIcon,
   FolderPlus,
   EditPencil,
@@ -14,6 +14,7 @@ import {
 import { Button, iconButtonClass, MenuItems } from "./ui";
 import { filterNotes, plainText, type Note } from "../lib/notes";
 import { folderPath, type Folder } from "../lib/workspace";
+import ItemIcon from "./ItemIcon";
 
 const NOTE_DRAG_TYPE = "application/x-ntbk-note";
 
@@ -29,6 +30,7 @@ interface Props {
   onNewNote: (parentId: string | null) => void;
   onNewFolder: (parentId: string | null) => void;
   onRenameFolder: (folder: Folder) => void;
+  onChangeFolderIcon: (folder: Folder) => void;
   onDeleteFolder: (folder: Folder) => void;
   onMoveNote: (noteId: string, folderId: string | null) => void;
 }
@@ -129,7 +131,12 @@ export default function FileExplorer(props: Props) {
         onDragEnd={resetDrag}
       >
         <span className="flex items-center gap-2 text-xs leading-5">
-          <Page size={13} className="shrink-0 text-stone-500" />
+          <ItemIcon
+            icon={note.icon}
+            kind="note"
+            size={13}
+            className="shrink-0 text-stone-500"
+          />
           <span className="min-w-0 flex-1 truncate">
             {note.title || "Sin título"}
           </span>
@@ -179,7 +186,7 @@ export default function FileExplorer(props: Props) {
               <div
                 {...dropHandlers(folder.id)}
                 data-drop-target={dropTarget === folder.id ? "true" : undefined}
-                className={`mb-0.5 flex items-center rounded ${dropTarget === folder.id ? "bg-stone-200 ring-1 ring-inset ring-stone-400" : activeFolderId === folder.id ? "bg-selection hover:bg-hover" : "hover:bg-hover"}`}
+                className={`mb-0.5 flex items-center rounded ${dropTarget === folder.id ? "bg-stone-200 ring-1 ring-inset ring-stone-500" : activeFolderId === folder.id ? "bg-stone-200/80 hover:bg-stone-200" : "bg-stone-100/70 hover:bg-stone-200/60"}`}
               >
                 <button
                   className="flex h-8 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted focus-visible:outline-2 focus-visible:outline-stone-500"
@@ -201,7 +208,7 @@ export default function FileExplorer(props: Props) {
                   )}
                 </button>
                 <button
-                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded py-2 text-left text-xs focus-visible:outline-2 focus-visible:outline-stone-500"
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded py-2 text-left text-xs font-semibold text-stone-700 focus-visible:outline-2 focus-visible:outline-stone-500"
                   title={folder.name}
                   aria-label={`Seleccionar carpeta ${folder.name}`}
                   aria-current={
@@ -214,7 +221,13 @@ export default function FileExplorer(props: Props) {
                     );
                   }}
                 >
-                  <FolderIcon size={15} className="shrink-0 text-muted" />
+                  <ItemIcon
+                    icon={folder.icon}
+                    kind="folder"
+                    size={17}
+                    strokeWidth={1.75}
+                    className="shrink-0 text-amber-800/80"
+                  />
                   <span className="truncate">{folder.name}</span>
                 </button>
                 <details
@@ -264,6 +277,13 @@ export default function FileExplorer(props: Props) {
                       Renombrar
                     </Button>
                     <Button
+                      variant="menu"
+                      onClick={() => props.onChangeFolderIcon(folder)}
+                    >
+                      <Palette size={15} />
+                      Cambiar icono
+                    </Button>
+                    <Button
                       variant="menuDanger"
                       onClick={() => props.onDeleteFolder(folder)}
                     >
@@ -297,12 +317,16 @@ export default function FileExplorer(props: Props) {
       <button
         {...dropHandlers(null)}
         data-drop-target={dropTarget === null ? "true" : undefined}
-        className={`mb-1 flex w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs text-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-stone-500 ${dropTarget === null ? "bg-stone-200 ring-1 ring-inset ring-stone-400" : "hover:bg-hover aria-[current=true]:bg-selection"}`}
+        className={`mb-1 flex w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs font-semibold text-stone-700 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-stone-500 ${dropTarget === null ? "bg-stone-200 ring-1 ring-inset ring-stone-500" : "bg-stone-100/70 hover:bg-stone-200/60 aria-[current=true]:bg-stone-200/80"}`}
         aria-label="Notas (raíz)"
         aria-current={activeFolderId === null ? "true" : undefined}
         onClick={() => props.onSelectFolder(null)}
       >
-        <FolderIcon size={14} />
+        <FolderIcon
+          size={17}
+          strokeWidth={1.75}
+          className="text-amber-800/80"
+        />
         Notas
       </button>
       {filtering ? (
