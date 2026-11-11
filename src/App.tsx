@@ -563,6 +563,17 @@ export default function App() {
               onToolbarPositionChange={(toolbarPosition) =>
                 setWorkspace((previous) => ({ ...previous, toolbarPosition }))
               }
+              notes={notes}
+              onOpenNote={(id) => {
+                const target = notes.find((item) => item.id === id);
+                if (!target) return;
+                setSelectedId(target.id);
+                setActiveFolderId(target.folderId);
+                setExplorerSelection({ kind: "note", id: target.id });
+                setFavorites(false);
+                setQuery("");
+                setMobileEditor(true);
+              }}
             />
           </Suspense></EditorErrorBoundary>
         ) : (

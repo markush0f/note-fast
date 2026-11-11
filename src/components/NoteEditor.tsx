@@ -7,7 +7,10 @@ import TaskItem from "@tiptap/extension-task-item";
 import { TextStyle, FontSize, Color } from "@tiptap/extension-text-style";
 import { characterCount, wordCount, type Note } from "../lib/notes";
 import type { ToolbarPlacement } from "../lib/editor-layout";
+import { NoteLink, type NoteLinkSuggestion } from "../lib/note-link-extension";
+import { noteTitle, rankNoteLinks } from "../lib/note-links";
 import FloatingToolbar from "./FloatingToolbar";
+import NoteLinkMenu from "./NoteLinkMenu";
 
 const editorClasses = [
   "min-h-75 text-[15px] leading-[1.8] text-secondary outline-none [overflow-wrap:anywhere]",
@@ -19,7 +22,7 @@ const editorClasses = [
   "[&_blockquote]:my-5.5 [&_blockquote]:border-l-2 [&_blockquote]:border-strong [&_blockquote]:pl-4.5 [&_blockquote]:text-muted",
   "[&_code]:rounded-sm [&_code]:bg-soft [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.9em]",
   "[&_pre]:mb-4 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-subtle [&_pre]:p-4 [&_pre]:font-mono [&_pre_code]:bg-transparent [&_pre_code]:p-0",
-  "[&_a]:underline [&_a]:underline-offset-3 [&_s]:line-through [&_hr]:my-6 [&_hr]:border-0 [&_hr]:border-t [&_hr]:border-line",
+  "[&_a]:underline [&_a]:underline-offset-3 [&_a.note-link]:text-ink [&_a.note-link]:decoration-strong [&_s]:line-through [&_hr]:my-6 [&_hr]:border-0 [&_hr]:border-t [&_hr]:border-line",
   "[&_ul[data-type=taskList]]:list-none [&_ul[data-type=taskList]]:pl-0 [&_ul[data-type=taskList]_li]:flex [&_ul[data-type=taskList]_li]:items-baseline [&_ul[data-type=taskList]_li]:gap-2 [&_ul[data-type=taskList]_li>div]:flex-1 [&_input[type=checkbox]]:accent-primary",
   "[&>p.is-editor-empty:first-child]:before:pointer-events-none [&>p.is-editor-empty:first-child]:before:float-left [&>p.is-editor-empty:first-child]:before:h-0 [&>p.is-editor-empty:first-child]:before:text-faint [&>p.is-editor-empty:first-child]:before:content-[attr(data-placeholder)]",
 ].join(" ");
@@ -30,6 +33,8 @@ interface Props {
   onTitleChange: (title: string) => void;
   toolbarPosition: ToolbarPlacement;
   onToolbarPositionChange: (position: ToolbarPlacement) => void;
+  notes: Note[];
+  onOpenNote: (id: string) => void;
 }
 
 export default function NoteEditor({
@@ -38,9 +43,21 @@ export default function NoteEditor({
   onTitleChange,
   toolbarPosition,
   onToolbarPositionChange,
+  notes,
+  onOpenNote,
 }: Props) {
   const boundaryRef = useRef<HTMLDivElement>(null);
   const [writing, setWriting] = useState(false);
+  const [suggestion, setSuggestion] = useState<NoteLinkSuggestion | null>(null);
+  const [linkIndex, setLinkIndex] = useState(0);
+  const openRef = useRef(onOpenNote);
+  const suggestionRef = useRef(suggestion);
+  const matchesRef = useRef<Note[]>([]);
+  const indexRef = useRef(0);
+  const insertRef = useRef<(target: Note) => void>(() => undefined);
+  openRef.current = onOpenNote;
+  suggestionRef.current = suggestion;
+  indexRef.current = linkIndex;
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -48,6 +65,12 @@ export default function NoteEditor({
           openOnClick: false,
           autolink: true,
           HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
+        },
+      }),
+      NoteLink.configure({
+        onSuggest: (next) => {
+          setSuggestion(next);
+          setLinkIndex(0);
         },
       }),
       Placeholder.configure({ placeholder: "Escribe…" }),
@@ -76,8 +99,67 @@ export default function NoteEditor({
           return false;
         },
       },
+      handleClick: (_view, _pos, event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return false;
+        const id = target.closest("a[data-note-id]")?.getAttribute("data-note-id");
+        if (!id) return false;
+        event.preventDefault();
+        openRef.current(id);
+        return true;
+      },
+      handleKeyDown: (_view, event) => {
+        const current = suggestionRef.current;
+        const matches = matchesRef.current;
+        if (!current) return false;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          setSuggestion(null);
+          return true;
+        }
+        if (!matches.length) return false;
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          const delta = event.key === "ArrowDown" ? 1 : -1;
+          const next = (indexRef.current + delta + matches.length) % matches.length;
+          indexRef.current = next;
+          setLinkIndex(next);
+          return true;
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          insertRef.current(matches[indexRef.current]);
+          return true;
+        }
+        return false;
+      },
     },
   });
+  insertRef.current = (target: Note) => {
+    const current = suggestionRef.current;
+    if (!editor || !current) return;
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(
+        { from: current.from, to: current.to },
+        [
+          {
+            type: "text",
+            text: noteTitle(target.title),
+            marks: [{ type: "noteLink", attrs: { id: target.id } }],
+          },
+          { type: "text", text: " " },
+        ],
+      )
+      .run();
+    setSuggestion(null);
+  };
+  const matches = suggestion
+    ? rankNoteLinks(notes, suggestion.query, note.id)
+    : [];
+  matchesRef.current = matches;
 
   const text = useEditorState({
     editor,
@@ -113,6 +195,15 @@ export default function NoteEditor({
             onBlur={() => setWriting(false)}
           />
           <EditorContent editor={editor} className="mt-6" />
+          {suggestion && (
+            <NoteLinkMenu
+              editor={editor}
+              notes={matches}
+              suggestion={suggestion}
+              activeIndex={Math.min(linkIndex, Math.max(matches.length - 1, 0))}
+              onPick={(target) => insertRef.current(target)}
+            />
+          )}
         </article>
       </div>
       <p

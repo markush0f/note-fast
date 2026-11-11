@@ -63,6 +63,7 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 - Barra vertical compacta: negrita, cursiva, encabezado, lista, enlace y color quedan a la vista. Tachado (`Ctrl/Cmd+Shift+S`), subrayado y el resto del formato se abren en un panel lateral. Los enlaces aceptan `http`, `https` y `mailto`; el color usa una paleta o un valor hexadecimal.
 - Tamaño de texto en el botón numérico de la barra. Al abrirlo: valor entero entre 8 y 200 px (Enter o salir del campo), `−` / `+`, tamaños predefinidos y restauración del tamaño del párrafo o encabezado. Se aplica a la selección o a lo que escribas después y se conserva al guardar y exportar. `Tamaño` indica selecciones mixtas; Escape descarta la entrada. No se aplica dentro de código.
 - Cada herramienta muestra su nombre y atajo al pasar el ratón o enfocarla con el teclado (Ctrl en Windows/Linux, Cmd en Mac). Las ayudas se adaptan al borde de la ventana, se cierran con Escape y no interfieren con el arrastre.
+- Enlaces entre notas: escribe `[[` y elige un título. El enlace abre esa nota. No incluye la nota actual.
 - Contador discreto de palabras y caracteres al pie del editor. Solo aparece mientras escribes el título o el contenido.
 - Guardado automático, estado visible de guardado y reintento en caso de error.
 - Menú `…` de la nota para marcar como favorita, exportar HTML o eliminar.
