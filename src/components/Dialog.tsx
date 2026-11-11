@@ -38,7 +38,7 @@ export default function Dialog({
         aria-modal="true"
         aria-labelledby={`${id}-heading`}
         aria-describedby={description ? `${id}-description` : undefined}
-        className="w-full max-w-90 rounded-lg border border-line bg-white p-6.5"
+        className="max-h-[calc(100dvh-2.5rem)] w-full max-w-90 overflow-y-auto rounded-lg border border-line bg-white p-6.5"
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           if (event.key === "Escape") {

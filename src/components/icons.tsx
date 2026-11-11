@@ -28,6 +28,17 @@ import {
   Code as CodeIcon,
   Undo as UndoIcon,
   Redo as RedoIcon,
+  Book as BookIcon,
+  LightBulb as LightBulbIcon,
+  Heart as HeartIcon,
+  Suitcase as SuitcaseIcon,
+  Home as HomeIcon,
+  Calendar as CalendarIcon,
+  MusicNote as MusicNoteIcon,
+  Globe as GlobeIcon,
+  MediaImage as MediaImageIcon,
+  Bookmark as BookmarkIcon,
+  Palette as PaletteIcon,
 } from "iconoir-react";
 
 export type IconProps = Omit<SVGProps<SVGSVGElement>, "ref"> & {
@@ -78,3 +89,14 @@ export const Quote = icon(QuoteIcon);
 export const Code = icon(CodeIcon);
 export const Undo = icon(UndoIcon);
 export const Redo = icon(RedoIcon);
+export const Book = icon(BookIcon);
+export const LightBulb = icon(LightBulbIcon);
+export const Heart = icon(HeartIcon);
+export const Suitcase = icon(SuitcaseIcon);
+export const Home = icon(HomeIcon);
+export const Calendar = icon(CalendarIcon);
+export const MusicNote = icon(MusicNoteIcon);
+export const Globe = icon(GlobeIcon);
+export const MediaImage = icon(MediaImageIcon);
+export const Bookmark = icon(BookmarkIcon);
+export const Palette = icon(PaletteIcon);
