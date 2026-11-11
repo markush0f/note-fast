@@ -49,7 +49,7 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 ## Funciones
 
 - Crear, editar y eliminar notas con confirmación. Lo eliminado va a la papelera durante 30 días; desde ahí se puede restaurar o borrar de forma definitiva.
-- Botón `Ajustes` al pie del panel izquierdo: abre un modal con `Apariencia` → `Claro` / `Oscuro`. El cambio es inmediato y se guarda para todo el cuaderno. Los colores del editor, menús y diálogos usan los mismos tokens del tema.
+- Botón `Ajustes` al pie del panel izquierdo: abre un modal con `Apariencia` → `Claro` / `Oscuro`, y con `Copia de seguridad` para exportar o importar el cuaderno completo en JSON. Importar sustituye las notas de este dispositivo, previa confirmación. Los colores del editor, menús y diálogos usan los mismos tokens del tema.
 - Carpetas y subcarpetas anidadas, con notas en cualquier nivel. Los ficheros son notas del editor, no archivos arbitrarios del sistema.
 - Selecciona una carpeta y usa los botones superiores para crear dentro de ella; selecciona `Notas` para crear en la raíz. El menú `…` de cada carpeta permite crear contenido, renombrarla o eliminarla junto con su contenido, previa confirmación.
 - Lista compacta de notas en una sola línea; la vista previa aparece al pasar el cursor.
@@ -82,7 +82,7 @@ La apariencia se guarda en el snapshot del cuaderno. `public/theme-init.js` apli
 
 El snapshot de versión 2 incluye notas y carpetas. Las notas del formato anterior se migran automáticamente a la raíz, conservando identificadores y contenido. Se mantiene la clave de almacenamiento original y la misma tabla SQLite: no hace falta cambiar la migración SQL. Los datos con un formato no compatible o una jerarquía inválida no se sobrescriben.
 
-Los datos del navegador y de la aplicación nativa **son independientes**. En web, cada origen (host/puerto) tiene su propio almacén. Borrar los datos del sitio o desinstalar la aplicación puede borrar las notas. No hay sincronización, cifrado, importación ni copias de seguridad automáticas. La exportación HTML permite conservar una copia legible de cada nota; la aplicación no vuelve a importarla. El servidor de desarrollo no equivale a una PWA instalable/offline.
+Los datos del navegador y de la aplicación nativa **son independientes**. En web, cada origen (host/puerto) tiene su propio almacén. Borrar los datos del sitio o desinstalar la aplicación puede borrar las notas. No hay sincronización ni cifrado. La copia JSON de Ajustes sirve para guardar el cuaderno o pasarlo entre el navegador y la aplicación nativa; no es automática. La exportación HTML permite conservar una copia legible de cada nota; la aplicación no vuelve a importarla. El servidor de desarrollo no equivale a una PWA instalable/offline.
 
 ## Estructura
 

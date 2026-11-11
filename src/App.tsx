@@ -46,6 +46,7 @@ import Dialog from "./components/Dialog";
 import SettingsDialog from "./components/SettingsDialog";
 import TrashDialog from "./components/TrashDialog";
 import EditorErrorBoundary from "./components/EditorErrorBoundary";
+import { downloadWorkspace } from "./lib/backup";
 import { applyTheme, getInitialTheme } from "./lib/theme";
 import IconPicker from "./components/IconPicker";
 import type { ItemTarget } from "./lib/item-icons";
@@ -647,6 +648,20 @@ export default function App() {
           onThemeChange={(theme) =>
             setWorkspace((previous) => ({ ...previous, theme }))
           }
+          onExport={() => downloadWorkspace(workspace)}
+          onImport={(imported) => {
+            const first = imported.notes.find((note) => !note.deletedAt);
+            setWorkspace(imported);
+            setSelectedId(first?.id ?? null);
+            setExplorerSelection(
+              first ? { kind: "note", id: first.id } : null,
+            );
+            setActiveFolderId(first?.folderId ?? null);
+            setQuery("");
+            setFavorites(false);
+            setMobileEditor(Boolean(first));
+            setSettingsOpen(false);
+          }}
         />
       )}
       {iconTarget && iconItem && (
