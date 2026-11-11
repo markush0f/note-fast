@@ -8,7 +8,8 @@ import {
 } from "react";
 import {
   ArrowLeft,
-  SidebarToggle,
+  SidebarCollapse,
+  SidebarExpand,
   Check,
   WarningCircle,
   Download,
@@ -407,7 +408,7 @@ export default function App() {
               aria-expanded={sidebarVisible}
               onClick={() => setSidebarVisible(false)}
             >
-              <SidebarToggle size={18} />
+              <SidebarCollapse size={18} />
             </Button>
           </div>
         </header>
@@ -500,7 +501,7 @@ export default function App() {
             title="Mostrar barra lateral"
             aria-expanded={false}
             onClick={() => setSidebarVisible(true)}
-          ><SidebarToggle size={18} collapsed /></Button>}
+          ><SidebarExpand size={18} /></Button>}
           <Button
             variant="icon"
             className="min-[651px]:hidden"
