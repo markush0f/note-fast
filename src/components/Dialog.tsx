@@ -21,7 +21,7 @@ export default function Dialog({
       previous instanceof HTMLElement
         ? (previous.closest("details")?.querySelector("summary") ?? previous)
         : null;
-    ref.current?.querySelector<HTMLElement>("input, button")?.focus();
+    ref.current?.querySelector<HTMLElement>("input, select, button")?.focus();
     return () => {
       if (trigger instanceof HTMLElement && trigger.isConnected)
         trigger.focus();
@@ -47,7 +47,7 @@ export default function Dialog({
           }
           if (event.key === "Tab") {
             const controls = ref.current?.querySelectorAll<HTMLElement>(
-              "input, button:not(:disabled)",
+              "input, select, button:not(:disabled)",
             );
             if (!controls?.length) return;
             const first = controls[0];

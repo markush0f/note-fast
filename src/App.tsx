@@ -14,6 +14,7 @@ import {
   MoreHoriz,
   Refresh,
   FolderPlus,
+  Folder as FolderIcon,
   Plus,
   Search,
   Star,
@@ -26,6 +27,8 @@ import { loadWorkspace, saveWorkspace } from "./lib/storage";
 import {
   createFolder,
   deleteFolder,
+  folderPath,
+  moveNote,
   type Folder,
   type Workspace,
 } from "./lib/workspace";
@@ -49,6 +52,8 @@ export default function App() {
   } | null>(null);
   const [folderError, setFolderError] = useState("");
   const [deleteFolderId, setDeleteFolderId] = useState<string | null>(null);
+  const [moveId, setMoveId] = useState<string | null>(null);
+  const [moveFolderId, setMoveFolderId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -212,6 +217,11 @@ export default function App() {
     }));
   };
 
+  const relocateNote = (noteId: string, folderId: string | null) => {
+    setWorkspace((previous) => moveNote(previous, noteId, folderId));
+    if (noteId === selectedId) setActiveFolderId(folderId);
+  };
+
   const removeItem = () => {
     const next = deleteFolderId
       ? deleteFolder(workspace, deleteFolderId)
@@ -352,6 +362,7 @@ export default function App() {
             setMobileEditor(true);
           }}
           onSelectFolder={setActiveFolderId}
+          onMoveNote={relocateNote}
           onNewNote={addNote}
           onNewFolder={openFolderDialog}
           onRenameFolder={(folder) => openFolderDialog(folder.parentId, folder)}
@@ -437,6 +448,17 @@ export default function App() {
                 </Button>
                 <Button
                   variant="menu"
+                  onClick={() => {
+                    closeActions();
+                    setMoveId(selected.id);
+                    setMoveFolderId(selected.folderId);
+                  }}
+                >
+                  <FolderIcon size={15} />
+                  Mover a…
+                </Button>
+                <Button
+                  variant="menu"
                   aria-label="Exportar nota como HTML"
                   onClick={() => {
                     exportNote();
@@ -497,6 +519,51 @@ export default function App() {
         )}
       </main>
 
+      {moveId && (
+        <Dialog title="Mover nota" onClose={() => setMoveId(null)}>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              relocateNote(moveId, moveFolderId);
+              setMoveId(null);
+            }}
+          >
+            <label
+              className="mt-4 mb-2 block text-xs text-muted"
+              htmlFor="move-folder"
+            >
+              Carpeta de destino
+            </label>
+            <select
+              id="move-folder"
+              className="w-full rounded border border-line bg-white px-3 py-2 text-sm outline-none focus:border-stone-500"
+              value={moveFolderId ?? ""}
+              onChange={(event) => setMoveFolderId(event.target.value || null)}
+            >
+              <option value="">Notas (raíz)</option>
+              {folders
+                .map((folder) => ({
+                  id: folder.id,
+                  path: folderPath(folders, folder.id)
+                    .map((item) => item.name)
+                    .join(" / "),
+                }))
+                .sort((a, b) => a.path.localeCompare(b.path, "es"))
+                .map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.path}
+                  </option>
+                ))}
+            </select>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button onClick={() => setMoveId(null)}>Cancelar</Button>
+              <Button variant="primary" type="submit">
+                Mover
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
       {folderDialog && (
         <Dialog
           title={folderDialog.id ? "Renombrar carpeta" : "Nueva carpeta"}
