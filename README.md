@@ -61,6 +61,7 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 - Barra de formato básica; el resto de herramientas se despliega desde `…`.
 - Guardado automático, estado visible de guardado y reintento en caso de error.
 - Menú `…` de la nota para marcar como favorita, exportar HTML o eliminar.
+- Icono personalizable por nota y carpeta: menú `…` → `Cambiar icono`. Catálogo de más de 100 iconos Iconoir, con búsqueda por nombre y sinónimos, filtros por categoría y opción de restaurar el predeterminado. La elección se guarda localmente y se conserva al renombrar carpetas o mover notas; los cuadernos anteriores siguen siendo compatibles.
 - Los cuadernos nuevos empiezan con una nota vacía; las notas existentes se conservan.
 - `Ctrl/Cmd+K`: buscar; `Ctrl/Cmd+Alt+N`: nueva nota.
 - Atajos del editor: `Ctrl/Cmd+B`, `I`, `U`, `Z` y `Shift+Z`.
