@@ -28,16 +28,23 @@ import { createNote, type Note } from "./lib/notes";
 import { loadWorkspace, saveWorkspace } from "./lib/storage";
 import {
   createFolder,
-  deleteFolder,
+  deleteForever,
+  emptyTrash,
   folderPath,
   moveNote,
+  purgeTrash,
+  restoreFolder,
+  restoreNote,
   setItemIcon,
+  trashFolder,
+  trashNote,
   type Folder,
   type Workspace,
 } from "./lib/workspace";
 import FileExplorer from "./components/FileExplorer";
 import Dialog from "./components/Dialog";
 import SettingsDialog from "./components/SettingsDialog";
+import TrashDialog from "./components/TrashDialog";
 import EditorErrorBoundary from "./components/EditorErrorBoundary";
 import { applyTheme, getInitialTheme } from "./lib/theme";
 import IconPicker from "./components/IconPicker";
@@ -52,8 +59,12 @@ export default function App() {
     notes: [],
     folders: [],
   });
-  const { notes, folders } = workspace;
+  const notes = workspace.notes.filter((note) => !note.deletedAt);
+  const folders = workspace.folders.filter((folder) => !folder.deletedAt);
+  const trashedNotes = workspace.notes.filter((note) => note.deletedAt);
+  const trashedFolders = workspace.folders.filter((folder) => folder.deletedAt);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
   const [initialTheme] = useState(getInitialTheme);
   const theme = workspace.theme ?? initialTheme;
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
@@ -136,17 +147,18 @@ export default function App() {
     void loadWorkspace()
       .then((stored) => {
         if (cancelled) return;
-        const initial: Workspace = stored ?? {
-          version: 2,
-          notes: [createNote()],
-          folders: [],
-        };
-        setWorkspace(initial);
-        setSelectedId(initial.notes[0]?.id ?? null);
-        setExplorerSelection(
-          initial.notes[0] ? { kind: "note", id: initial.notes[0].id } : null,
+        const initial = purgeTrash(
+          stored ?? {
+            version: 2,
+            notes: [createNote()],
+            folders: [],
+          },
         );
-        setActiveFolderId(initial.notes[0]?.folderId ?? null);
+        const first = initial.notes.find((note) => !note.deletedAt);
+        setWorkspace(initial);
+        setSelectedId(first?.id ?? null);
+        setExplorerSelection(first ? { kind: "note", id: first.id } : null);
+        setActiveFolderId(first?.folderId ?? null);
         setLoaded(true);
       })
       .catch((error: unknown) => {
@@ -253,23 +265,25 @@ export default function App() {
 
   const removeItem = () => {
     const next = deleteFolderId
-      ? deleteFolder(workspace, deleteFolderId)
-      : { ...workspace, notes: notes.filter((note) => note.id !== deleteId) };
+      ? trashFolder(workspace, deleteFolderId)
+      : trashNote(workspace, deleteId ?? "");
+    const visible = next.notes.filter((note) => !note.deletedAt);
+    const visibleFolders = next.folders.filter((folder) => !folder.deletedAt);
     setWorkspace(next);
-    if (!next.notes.some((note) => note.id === selectedId)) {
-      setSelectedId(next.notes[0]?.id ?? null);
+    if (!visible.some((note) => note.id === selectedId)) {
+      setSelectedId(visible[0]?.id ?? null);
       setMobileEditor(false);
     }
-    if (!next.folders.some((folder) => folder.id === activeFolderId))
+    if (!visibleFolders.some((folder) => folder.id === activeFolderId))
       setActiveFolderId(null);
     if (
       explorerSelection &&
-      !(explorerSelection.kind === "note" ? next.notes : next.folders).some(
+      !(explorerSelection.kind === "note" ? visible : visibleFolders).some(
         (item) => item.id === explorerSelection.id,
       )
     ) {
       setExplorerSelection(
-        next.notes[0] ? { kind: "note", id: next.notes[0].id } : null,
+        visible[0] ? { kind: "note", id: visible[0].id } : null,
       );
     }
     setDeleteId(null);
@@ -415,6 +429,15 @@ export default function App() {
           onDeleteFolder={(folder) => setDeleteFolderId(folder.id)}
         />
         <div className="shrink-0 border-t border-line p-2.5">
+          <Button variant="menu" onClick={() => setTrashOpen(true)}>
+            <Trash size={16} />
+            Papelera
+            {trashedNotes.length + trashedFolders.length > 0 && (
+              <span className="text-[11px] text-muted">
+                {trashedNotes.length + trashedFolders.length}
+              </span>
+            )}
+          </Button>
           <Button variant="menu" onClick={() => setSettingsOpen(true)}>
             <Settings size={16} />
             Ajustes
@@ -585,6 +608,38 @@ export default function App() {
         )}
       </main>
 
+      {trashOpen && (
+        <TrashDialog
+          notes={trashedNotes}
+          folders={trashedFolders}
+          onClose={() => setTrashOpen(false)}
+          onRestoreNote={(id) => {
+            const next = restoreNote(workspace, id);
+            const note = next.notes.find((item) => item.id === id);
+            setWorkspace(next);
+            if (note) {
+              setSelectedId(note.id);
+              setActiveFolderId(note.folderId);
+              setExplorerSelection({ kind: "note", id: note.id });
+              setMobileEditor(true);
+            }
+            setTrashOpen(false);
+          }}
+          onRestoreFolder={(id) => {
+            setWorkspace(restoreFolder(workspace, id));
+            setActiveFolderId(id);
+            setExplorerSelection({ kind: "folder", id });
+            setTrashOpen(false);
+          }}
+          onDeleteNote={(id) =>
+            setWorkspace(deleteForever(workspace, { kind: "note", id }))
+          }
+          onDeleteFolder={(id) =>
+            setWorkspace(deleteForever(workspace, { kind: "folder", id }))
+          }
+          onEmpty={() => setWorkspace(emptyTrash(workspace))}
+        />
+      )}
       {settingsOpen && (
         <SettingsDialog
           theme={theme}
@@ -704,8 +759,8 @@ export default function App() {
           title={deleteFolderId ? "¿Eliminar carpeta?" : "¿Eliminar nota?"}
           description={
             deleteFolderId
-              ? "Se eliminarán todas sus subcarpetas y notas. Esta acción no se puede deshacer."
-              : "Esta acción no se puede deshacer."
+              ? "La carpeta y su contenido irán a la papelera durante 30 días."
+              : "La nota irá a la papelera durante 30 días."
           }
           onClose={() => {
             setDeleteId(null);

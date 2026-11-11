@@ -13,7 +13,11 @@ export interface Folder {
   name: string;
   parentId: string | null;
   icon?: ItemIconId;
+  deletedAt?: string;
 }
+
+export const TRASH_DAYS = 30;
+const TRASH_MS = TRASH_DAYS * 24 * 60 * 60 * 1000;
 export interface Workspace {
   version: 2;
   notes: Note[];
@@ -55,14 +59,16 @@ export function migrateWorkspace(value: unknown): Workspace | undefined {
         typeof note.content !== "string" ||
         typeof note.favorite !== "boolean" ||
         typeof note.createdAt !== "string" ||
-        typeof note.updatedAt !== "string",
+        typeof note.updatedAt !== "string" ||
+        (note.deletedAt !== undefined && typeof note.deletedAt !== "string"),
     ) ||
     folders.some(
       (folder) =>
         !folder ||
         typeof folder.id !== "string" ||
         typeof folder.name !== "string" ||
-        (folder.parentId !== null && typeof folder.parentId !== "string"),
+        (folder.parentId !== null && typeof folder.parentId !== "string") ||
+        (folder.deletedAt !== undefined && typeof folder.deletedAt !== "string"),
     )
   ) {
     throw new Error("Datos del cuaderno no válidos");
@@ -155,7 +161,7 @@ export function moveNote(
   };
 }
 
-export function deleteFolder(workspace: Workspace, id: string): Workspace {
+function deletedSubtree(workspace: Workspace, id: string): Set<string> {
   const removed = new Set([id]);
   let changed = true;
   while (changed) {
@@ -171,11 +177,221 @@ export function deleteFolder(workspace: Workspace, id: string): Workspace {
       }
     }
   }
+  return removed;
+}
+
+export function trashNote(
+  workspace: Workspace,
+  id: string,
+  deletedAt = new Date().toISOString(),
+): Workspace {
+  const note = workspace.notes.find((item) => item.id === id);
+  if (!note || note.deletedAt) return workspace;
   return {
     ...workspace,
-    folders: workspace.folders.filter((folder) => !removed.has(folder.id)),
-    notes: workspace.notes.filter(
-      (note) => !note.folderId || !removed.has(note.folderId),
+    notes: workspace.notes.map((item) =>
+      item.id === id ? { ...item, deletedAt } : item,
     ),
   };
+}
+
+export function trashFolder(
+  workspace: Workspace,
+  id: string,
+  deletedAt = new Date().toISOString(),
+): Workspace {
+  const folder = workspace.folders.find((item) => item.id === id);
+  if (!folder || folder.deletedAt) return workspace;
+  const removed = deletedSubtree(workspace, id);
+  return {
+    ...workspace,
+    folders: workspace.folders.map((item) =>
+      removed.has(item.id) && !item.deletedAt ? { ...item, deletedAt } : item,
+    ),
+    notes: workspace.notes.map((item) =>
+      item.folderId && removed.has(item.folderId) && !item.deletedAt
+        ? { ...item, deletedAt }
+        : item,
+    ),
+  };
+}
+
+export function deleteFolder(workspace: Workspace, id: string): Workspace {
+  return trashFolder(workspace, id);
+}
+
+function withoutDeletedAt<T extends { deletedAt?: string }>(item: T): T {
+  const next = { ...item };
+  delete next.deletedAt;
+  return next;
+}
+
+export function restoreNote(workspace: Workspace, id: string): Workspace {
+  const note = workspace.notes.find((item) => item.id === id && item.deletedAt);
+  if (!note) return workspace;
+  const parentAlive =
+    note.folderId !== null &&
+    workspace.folders.some(
+      (folder) => folder.id === note.folderId && !folder.deletedAt,
+    );
+  return {
+    ...workspace,
+    notes: workspace.notes.map((item) =>
+      item.id === id
+        ? {
+            ...withoutDeletedAt(item),
+            folderId: parentAlive ? item.folderId : null,
+          }
+        : item,
+    ),
+  };
+}
+
+export function restoreFolder(workspace: Workspace, id: string): Workspace {
+  const folder = workspace.folders.find(
+    (item) => item.id === id && item.deletedAt,
+  );
+  if (!folder?.deletedAt) return workspace;
+  const deletedAt = folder.deletedAt;
+  const restored = new Set([id]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const child of workspace.folders) {
+      if (
+        child.parentId &&
+        restored.has(child.parentId) &&
+        child.deletedAt === deletedAt &&
+        !restored.has(child.id)
+      ) {
+        restored.add(child.id);
+        changed = true;
+      }
+    }
+  }
+  const parentAlive =
+    folder.parentId !== null &&
+    workspace.folders.some(
+      (item) => item.id === folder.parentId && !item.deletedAt,
+    );
+  return {
+    ...workspace,
+    folders: workspace.folders.map((item) => {
+      if (!restored.has(item.id)) return item;
+      const next = withoutDeletedAt(item);
+      if (item.id === id && !parentAlive) next.parentId = null;
+      return next;
+    }),
+    notes: workspace.notes.map((item) =>
+      item.folderId &&
+      restored.has(item.folderId) &&
+      item.deletedAt === deletedAt
+        ? withoutDeletedAt(item)
+        : item,
+    ),
+  };
+}
+
+export function deleteForever(
+  workspace: Workspace,
+  target: { kind: "note" | "folder"; id: string },
+): Workspace {
+  if (target.kind === "note") {
+    if (!workspace.notes.some((note) => note.id === target.id && note.deletedAt))
+      return workspace;
+    return {
+      ...workspace,
+      notes: workspace.notes.filter((note) => note.id !== target.id),
+    };
+  }
+  const folder = workspace.folders.find(
+    (item) => item.id === target.id && item.deletedAt,
+  );
+  if (!folder) return workspace;
+  const removed = new Set([target.id]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const child of workspace.folders) {
+      if (
+        child.parentId &&
+        removed.has(child.parentId) &&
+        child.deletedAt &&
+        !removed.has(child.id)
+      ) {
+        removed.add(child.id);
+        changed = true;
+      }
+    }
+  }
+  return {
+    ...workspace,
+    folders: workspace.folders.filter((item) => !removed.has(item.id)),
+    notes: workspace.notes.filter(
+      (note) => !(note.deletedAt && note.folderId && removed.has(note.folderId)),
+    ),
+  };
+}
+
+export function emptyTrash(workspace: Workspace): Workspace {
+  const removed = new Set(
+    workspace.folders.filter((folder) => folder.deletedAt).map((folder) => folder.id),
+  );
+  const notes = workspace.notes.filter((note) => !note.deletedAt);
+  const folders = workspace.folders.filter((folder) => !folder.deletedAt);
+  if (
+    notes.length === workspace.notes.length &&
+    folders.length === workspace.folders.length
+  )
+    return workspace;
+  return {
+    ...workspace,
+    notes: notes.map((note) =>
+      note.folderId && removed.has(note.folderId)
+        ? { ...note, folderId: null }
+        : note,
+    ),
+    folders,
+  };
+}
+
+export function purgeTrash(
+  workspace: Workspace,
+  now = Date.now(),
+): Workspace {
+  const expired = (deletedAt?: string) => {
+    if (!deletedAt) return false;
+    const time = Date.parse(deletedAt);
+    return Number.isFinite(time) && now - time >= TRASH_MS;
+  };
+  const removed = new Set(
+    workspace.folders.filter((folder) => expired(folder.deletedAt)).map((folder) => folder.id),
+  );
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const folder of workspace.folders) {
+      if (
+        folder.parentId &&
+        removed.has(folder.parentId) &&
+        folder.deletedAt &&
+        !removed.has(folder.id)
+      ) {
+        removed.add(folder.id);
+        changed = true;
+      }
+    }
+  }
+  const notes = workspace.notes.filter(
+    (note) =>
+      !expired(note.deletedAt) &&
+      !(note.deletedAt && note.folderId && removed.has(note.folderId)),
+  );
+  const folders = workspace.folders.filter((folder) => !removed.has(folder.id));
+  if (
+    notes.length === workspace.notes.length &&
+    folders.length === workspace.folders.length
+  )
+    return workspace;
+  return { ...workspace, notes, folders };
 }

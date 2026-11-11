@@ -9,6 +9,7 @@ export interface Note {
   favorite: boolean;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string;
 }
 
 export function createNote(folderId: string | null = null): Note {

@@ -2,10 +2,17 @@ import { describe, expect, it } from "vitest";
 import { createNote } from "./notes";
 import {
   createFolder,
+  deleteForever,
   deleteFolder,
+  emptyTrash,
   folderPath,
   migrateWorkspace,
   moveNote,
+  purgeTrash,
+  restoreFolder,
+  restoreNote,
+  trashFolder,
+  trashNote,
   type Workspace,
 } from "./workspace";
 
@@ -88,13 +95,63 @@ describe("folder workspace", () => {
         siblingNote,
       ],
     };
-    expect(deleteFolder(workspace, root.id)).toEqual({
-      version: 2,
-      folders: [sibling],
-      notes: [rootNote, siblingNote],
-    });
+    const trashed = deleteFolder(workspace, root.id);
+    expect(trashed.folders.filter((folder) => !folder.deletedAt)).toEqual([
+      sibling,
+    ]);
+    expect(trashed.notes.filter((note) => !note.deletedAt)).toEqual([
+      rootNote,
+      siblingNote,
+    ]);
+    expect(trashed.folders).toHaveLength(4);
     expect(workspace.folders).toHaveLength(4);
     expect(workspace.notes).toHaveLength(5);
+  });
+  it("restores trash for 30 days and then purges it", () => {
+    const folder = createFolder("Proyectos");
+    const kept = createNote();
+    const note = { ...createNote(folder.id), title: "Plan" };
+    const earlier = createNote(folder.id);
+    const workspace: Workspace = {
+      version: 2,
+      folders: [folder],
+      notes: [kept, note, earlier],
+    };
+    const deletedAt = "2026-01-01T00:00:00.000Z";
+    const withNote = trashNote(
+      { ...workspace, notes: workspace.notes.map((item) => item.id === earlier.id ? { ...item, deletedAt: "2025-12-01T00:00:00.000Z" } : item) },
+      note.id,
+      deletedAt,
+    );
+    const trashed = trashFolder(withNote, folder.id, deletedAt);
+    expect(trashed.notes.find((item) => item.id === earlier.id)?.deletedAt).toBe(
+      "2025-12-01T00:00:00.000Z",
+    );
+    const restored = restoreFolder(trashed, folder.id);
+    expect(restored.folders[0].deletedAt).toBeUndefined();
+    expect(restored.notes.find((item) => item.id === note.id)?.deletedAt).toBeUndefined();
+    expect(restored.notes.find((item) => item.id === earlier.id)?.deletedAt).toBe(
+      "2025-12-01T00:00:00.000Z",
+    );
+    const orphan = restoreNote(trashed, note.id);
+    expect(orphan.notes.find((item) => item.id === note.id)).toMatchObject({
+      folderId: null,
+      title: "Plan",
+    });
+    expect(orphan.notes.find((item) => item.id === note.id)?.deletedAt).toBeUndefined();
+    const day = 24 * 60 * 60 * 1000;
+    expect(
+      purgeTrash(trashed, Date.parse(deletedAt) + 29 * day).notes.map(
+        (item) => item.id,
+      ),
+    ).toEqual([kept.id, note.id]);
+    expect(
+      purgeTrash(trashed, Date.parse(deletedAt) + 30 * day).notes.map(
+        (item) => item.id,
+      ),
+    ).toEqual([kept.id]);
+    expect(emptyTrash(trashed).notes).toEqual([kept]);
+    expect(deleteForever(trashed, { kind: "note", id: note.id }).notes.some((item) => item.id === note.id)).toBe(false);
   });
   it("keeps legacy and intentionally empty workspaces", () => {
     expect(migrateWorkspace(undefined)).toBeUndefined();

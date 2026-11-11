@@ -48,7 +48,7 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 
 ## Funciones
 
-- Crear, editar y eliminar notas con confirmación.
+- Crear, editar y eliminar notas con confirmación. Lo eliminado va a la papelera durante 30 días; desde ahí se puede restaurar o borrar de forma definitiva.
 - Botón `Ajustes` al pie del panel izquierdo: abre un modal con `Apariencia` → `Claro` / `Oscuro`. El cambio es inmediato y se guarda para todo el cuaderno. Los colores del editor, menús y diálogos usan los mismos tokens del tema.
 - Carpetas y subcarpetas anidadas, con notas en cualquier nivel. Los ficheros son notas del editor, no archivos arbitrarios del sistema.
 - Selecciona una carpeta y usa los botones superiores para crear dentro de ella; selecciona `Notas` para crear en la raíz. El menú `…` de cada carpeta permite crear contenido, renombrarla o eliminarla junto con su contenido, previa confirmación.
