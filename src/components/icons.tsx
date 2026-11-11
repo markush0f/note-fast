@@ -20,6 +20,9 @@ import {
   Bold as BoldIcon,
   Italic as ItalicIcon,
   Underline as UnderlineIcon,
+  Strikethrough as StrikethroughIcon,
+  Link as LinkIcon,
+  ColorPicker as ColorPickerIcon,
   TextSize as TextSizeIcon,
   List as ListIcon,
   NumberedListLeft as NumberedListLeftIcon,
@@ -86,6 +89,9 @@ export const EditPencil = icon(EditPencilIcon);
 export const Bold = icon(BoldIcon);
 export const Italic = icon(ItalicIcon);
 export const Underline = icon(UnderlineIcon);
+export const Strikethrough = icon(StrikethroughIcon);
+export const Link = icon(LinkIcon);
+export const ColorPicker = icon(ColorPickerIcon);
 export const TextSize = icon(TextSizeIcon);
 export const List = icon(ListIcon);
 export const NumberedListLeft = icon(NumberedListLeftIcon);
