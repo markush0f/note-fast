@@ -49,6 +49,7 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 ## Funciones
 
 - Crear, editar y eliminar notas con confirmación.
+- Botón `Ajustes` al pie del panel izquierdo: abre un modal con `Apariencia` → `Claro` / `Oscuro`. El cambio es inmediato y se guarda para todo el cuaderno. Los colores del editor, menús y diálogos usan los mismos tokens del tema.
 - Carpetas y subcarpetas anidadas, con notas en cualquier nivel. Los ficheros son notas del editor, no archivos arbitrarios del sistema.
 - Selecciona una carpeta y usa los botones superiores para crear dentro de ella; selecciona `Notas` para crear en la raíz. El menú `…` de cada carpeta permite crear contenido, renombrarla o eliminarla junto con su contenido, previa confirmación.
 - Lista compacta de notas en una sola línea; la vista previa aparece al pasar el cursor.
@@ -58,7 +59,7 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 - Búsqueda por título y contenido, independiente de acentos y mayúsculas.
 - Vista de dos paneles: lista de notas y editor, sin navegación ni información decorativa.
 - Favoritas mediante el filtro de estrella y orden por última edición.
-- Barra de herramientas separada del documento, anclada a cualquiera de las cuatro esquinas del editor. Se puede arrastrar desde el asa con ratón, lápiz o pantalla táctil y soltar en una esquina. Escape cancela el movimiento. El botón `Posición de la barra` mantiene una alternativa para teclado; la elección se guarda para todo el cuaderno en IndexedDB o SQLite. Permanece visible al desplazar el texto, sin taparlo.
+- Barra flotante con posición libre: arrastra el asa con ratón, lápiz o pantalla táctil y suéltala en cualquier punto del editor, sin ajuste automático a esquinas. Escape cancela el arrastre; las flechas del teclado desplazan el asa (Shift para pasos mayores). El menú de posición mantiene las esquinas como atajos. La ubicación se guarda en IndexedDB o SQLite y se adapta al tamaño de la ventana para que la barra siga accesible. Al flotar puede superponerse al texto: muévela donde te resulte más cómoda.
 - Formato básico visible; el resto de herramientas se despliega desde `…`.
 - Guardado automático, estado visible de guardado y reintento en caso de error.
 - Menú `…` de la nota para marcar como favorita, exportar HTML o eliminar.
@@ -73,6 +74,8 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 
 La ventana de Tauri tiene `dragDropEnabled: false` para permitir el arrastre HTML5 interno en Windows. No se importan archivos arrastrados desde el sistema.
 
+La apariencia se guarda en el snapshot del cuaderno. `public/theme-init.js` aplica una caché mínima de la preferencia (`ntbk:theme` en localStorage) antes de cargar React para evitar un destello claro al abrir en oscuro; después, el dato del cuaderno es el que se aplica.
+
 El snapshot de versión 2 incluye notas y carpetas. Las notas del formato anterior se migran automáticamente a la raíz, conservando identificadores y contenido. Se mantiene la clave de almacenamiento original y la misma tabla SQLite: no hace falta cambiar la migración SQL. Los datos con un formato no compatible o una jerarquía inválida no se sobrescriben.
 
 Los datos del navegador y de la aplicación nativa **son independientes**. En web, cada origen (host/puerto) tiene su propio almacén. Borrar los datos del sitio o desinstalar la aplicación puede borrar las notas. No hay sincronización, cifrado, importación ni copias de seguridad automáticas. La exportación HTML permite conservar una copia legible de cada nota; la aplicación no vuelve a importarla. El servidor de desarrollo no equivale a una PWA instalable/offline.
@@ -83,7 +86,9 @@ Los datos del navegador y de la aplicación nativa **son independientes**. En we
 src/
   App.tsx                    Cuaderno, selección y guardado
   components/NoteEditor.tsx  Documento, Tiptap y zona de herramientas
-  components/EditorToolbar.tsx Formato y selector de posición de la barra
+  components/EditorToolbar.tsx Controles de formato y atajos de posición
+  components/FloatingToolbar.tsx Posición libre, límites y adaptación de tamaño
+  components/useToolbarDrag.ts Arrastre con Pointer Events y cancelación
   components/FileExplorer.tsx Carpetas y notas anidadas
   components/Dialog.tsx      Modal accesible con gestión de foco
   components/ui.tsx          Botones y menús reutilizables con Tailwind
