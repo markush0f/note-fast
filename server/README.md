@@ -1,6 +1,6 @@
 # Backend de ntbk
 
-API independiente con Bun, Hono, PostgreSQL y Better Auth. Primera fase: cuentas y sesiones; no incluye Telegram, recordatorios, sincronización de notas ni pantalla de acceso. El frontend y Tauri siguen funcionando localmente sin este servicio.
+API con Bun, Hono, PostgreSQL y Better Auth. Gestiona cuentas, sesiones y el cuaderno completo JSON aislado por usuario. La versión web requiere autenticación; Tauri continúa usando almacenamiento local y no integra estas cuentas. Telegram y recordatorios no están implementados.
 
 ## Todo con Docker (recomendado)
 
@@ -20,8 +20,9 @@ No necesitas Bun, PostgreSQL ni un `.env` en el equipo. Compose:
 - **Aplicación:** http://127.0.0.1:1420
 - **Backend listo:** http://127.0.0.1:3000/ready
 - **Perfil a través del frontend:** http://127.0.0.1:1420/api/me (401 hasta iniciar sesión).
+- **Cuaderno autenticado:** `GET`/`PUT http://127.0.0.1:1420/api/workspace`.
 
-El frontend aún no incorpora la pantalla de acceso; arrancarlo junto al backend no añade sincronización ni Telegram. Es una compilación estática, sin recarga en caliente: tras cambiar código vuelve a ejecutar `docker compose up --build -d`. No ejecutes Vite en paralelo en el puerto 1420.
+La primera vez que una cuenta sin cuaderno inicia sesión, la web importa el cuaderno local existente, si lo hay, sin borrar la copia local. Es una compilación estática, sin recarga en caliente: tras cambiar código vuelve a ejecutar `docker compose up --build -d`. No ejecutes Vite en paralelo en el puerto 1420.
 
 ```sh
 docker compose ps -a
@@ -30,7 +31,7 @@ docker compose logs migrate
 docker compose down
 ```
 
-`down` conserva las cuentas y el secreto en los volúmenes `ntbk-postgres` y `ntbk-auth`. **`down -v` borra ambos**, no lo uses para un reinicio normal. Las notas del frontend siguen en el navegador y no están en esos volúmenes; usa el mismo origen de siempre y exporta una copia antes de cambiarlo.
+`down` conserva las cuentas, cuadernos y secreto en los volúmenes `ntbk-postgres` y `ntbk-auth`. **`down -v` borra ambos**, no lo uses para un reinicio normal. El cuaderno local previo se conserva en el navegador; exporta una copia antes de cambiar de origen.
 
 Opcionalmente puedes proporcionar `BETTER_AUTH_SECRET` desde el entorno o un `.env` en la raíz para Compose. Debe ser el mismo en migrador y backend y mantenerse estable; no cambies de estrategia de secreto con sesiones activas. Compose no lee `server/.env` ni lo copia a la imagen. El secreto generado no se imprime en los logs. La configuración HTTP y la contraseña de PostgreSQL incluidas son **solo locales**, y los puertos solo se publican en loopback.
 
@@ -79,6 +80,8 @@ Usa el mismo nombre de host en frontend y backend: no mezclar `localhost` con `1
 | POST | `/api/auth/sign-out` | Invalida la sesión. |
 | GET | `/api/auth/get-session` | Consulta de sesión de Better Auth. |
 | GET | `/api/me` | Perfil de la cuenta autenticada; 401 si no hay sesión. |
+| GET | `/api/workspace` | Lee el cuaderno de la sesión; 401 si no hay sesión. |
+| PUT | `/api/workspace` | Guarda el cuaderno completo de la sesión; máximo 5 MiB. |
 
 Better Auth gestiona sus rutas bajo `/api/auth/*`, el hash de contraseñas y las cookies de sesión HttpOnly. Contraseñas entre 12 y 128 caracteres; sesiones de siete días. `/api/me` no admite elegir usuario mediante parámetros.
 
@@ -105,7 +108,7 @@ curl -b cookies.txt http://127.0.0.1:3000/api/me
 
 ## Migraciones
 
-`bun run server:migrate` aplica el esquema requerido por la versión instalada de Better Auth, incluida la tabla de límites de peticiones, mediante su migrador oficial. Al ejecutar Bun directamente no se aplica automáticamente al arrancar; Compose sí lo hace mediante el servicio `migrate`, antes del backend. El lockfile fija las versiones; revisar las actualizaciones y realizar copia de seguridad antes de migrar. Ejecutar un único migrador antes de desplegar las réplicas. Las futuras tablas de negocio tendrán migraciones propias; no se crean tablas de notas o recordatorios anticipadamente.
+`bun run server:migrate` aplica el esquema requerido por la versión instalada de Better Auth, incluida la tabla de límites de peticiones, mediante su migrador oficial. Al ejecutar Bun directamente no se aplica automáticamente al arrancar; Compose sí lo hace mediante el servicio `migrate`, antes del backend. El lockfile fija las versiones; revisar las actualizaciones y realizar copia de seguridad antes de migrar. Ejecutar un único migrador antes de desplegar las réplicas. La migración crea también `user_workspace`, con un cuaderno JSONB por cuenta y borrado en cascada al eliminarla.
 
 ## Pruebas
 
@@ -133,4 +136,4 @@ TEST_DATABASE_URL=postgresql://ntbk:ntbk_dev_only@127.0.0.1:5432/ntbk_test bun r
 - Configurar HTTPS, secretos del alojamiento, copias de seguridad y monitorización. No registrar cookies, contraseñas ni tokens.
 - La limitación de intentos usa PostgreSQL y la IP del socket de Bun, sobrescribiendo cualquier cabecera del cliente. Detrás de un proxy las peticiones compartirán el límite de la IP del proxy. Adaptar únicamente con una cadena de proxies de confianza que elimine y reescriba las cabeceras, y aplicar límites también en el borde. No confiar directamente en `X-Forwarded-For`.
 - Al añadir recursos, derivar siempre `userId` de la sesión y filtrar **cada** consulta por propietario. Tener cuentas no aísla automáticamente futuras tablas.
-- La vinculación de notas locales a cuentas y la política de cambio de usuario aún no están implementadas. No se envían ni importan notas al registrarse.
+- La web importa el cuaderno local solo cuando la cuenta aún no tiene uno; para cambiar de usuario, cierra sesión e inicia otra. Las notas locales no se borran. Tauri todavía no admite sesión ni sincronización.
