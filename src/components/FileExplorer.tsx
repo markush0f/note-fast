@@ -15,13 +15,14 @@ import { Button, iconButtonClass, MenuItems } from "./ui";
 import { filterNotes, plainText, type Note } from "../lib/notes";
 import { folderPath, type Folder } from "../lib/workspace";
 import ItemIcon from "./ItemIcon";
+import type { ItemTarget } from "../lib/item-icons";
 
 const NOTE_DRAG_TYPE = "application/x-ntbk-note";
 
 interface Props {
   notes: Note[];
   folders: Folder[];
-  selectedId: string | null;
+  selection: ItemTarget | null;
   activeFolderId: string | null;
   query: string;
   favorites: boolean;
@@ -36,8 +37,7 @@ interface Props {
 }
 
 export default function FileExplorer(props: Props) {
-  const { notes, folders, selectedId, activeFolderId, query, favorites } =
-    props;
+  const { notes, folders, selection, activeFolderId, query, favorites } = props;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null | undefined>();
@@ -117,7 +117,11 @@ export default function FileExplorer(props: Props) {
         draggable
         className={`mb-0.5 block w-full cursor-grab rounded bg-transparent px-2.5 py-1.5 text-left hover:bg-hover active:cursor-grabbing aria-[current=true]:bg-selection focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-strong ${draggedId === note.id ? "opacity-40" : ""}`}
         aria-label={`Abrir ${note.title || "Sin título"}`}
-        aria-current={selectedId === note.id ? "true" : undefined}
+        aria-current={
+          selection?.kind === "note" && selection.id === note.id
+            ? "true"
+            : undefined
+        }
         title={`${note.title || "Sin título"}\n${plainText(note.content) || "Nota vacía"}`}
         onClick={() => props.onSelect(note)}
         onDragStart={(event) => {
@@ -186,7 +190,7 @@ export default function FileExplorer(props: Props) {
               <div
                 {...dropHandlers(folder.id)}
                 data-drop-target={dropTarget === folder.id ? "true" : undefined}
-                className={`mb-0.5 flex items-center rounded ${dropTarget === folder.id ? "bg-selection ring-1 ring-inset ring-strong" : activeFolderId === folder.id ? "bg-selection hover:bg-hover" : "bg-soft/70 hover:bg-selection/60"}`}
+                className={`mb-0.5 flex items-center rounded ${dropTarget === folder.id ? "bg-selection ring-1 ring-inset ring-strong" : selection?.kind === "folder" && selection.id === folder.id ? "bg-selection" : "bg-transparent hover:bg-hover"}`}
               >
                 <button
                   className="flex h-8 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted focus-visible:outline-2 focus-visible:outline-strong"
@@ -212,7 +216,9 @@ export default function FileExplorer(props: Props) {
                   title={folder.name}
                   aria-label={`Seleccionar carpeta ${folder.name}`}
                   aria-current={
-                    activeFolderId === folder.id ? "true" : undefined
+                    selection?.kind === "folder" && selection.id === folder.id
+                      ? "true"
+                      : undefined
                   }
                   onClick={() => {
                     props.onSelectFolder(folder.id);
@@ -317,9 +323,9 @@ export default function FileExplorer(props: Props) {
       <button
         {...dropHandlers(null)}
         data-drop-target={dropTarget === null ? "true" : undefined}
-        className={`mb-1 flex w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs font-semibold text-secondary focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-strong ${dropTarget === null ? "bg-selection ring-1 ring-inset ring-strong" : "bg-soft/70 hover:bg-selection/60 aria-[current=true]:bg-selection/80"}`}
+        className={`mb-1 flex w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs font-semibold text-secondary focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-strong ${dropTarget === null ? "bg-selection ring-1 ring-inset ring-strong" : "bg-transparent hover:bg-hover aria-[current=true]:bg-selection"}`}
         aria-label="Notas (raíz)"
-        aria-current={activeFolderId === null ? "true" : undefined}
+        aria-current={selection === null ? "true" : undefined}
         onClick={() => props.onSelectFolder(null)}
       >
         <FolderIcon size={17} strokeWidth={1.75} className="text-folder/80" />

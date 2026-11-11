@@ -56,6 +56,9 @@ export default function App() {
   const [initialTheme] = useState(getInitialTheme);
   const theme = workspace.theme ?? initialTheme;
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [explorerSelection, setExplorerSelection] = useState<ItemTarget | null>(
+    null,
+  );
   const [folderDialog, setFolderDialog] = useState<{
     id?: string;
     parentId: string | null;
@@ -121,6 +124,7 @@ export default function App() {
         : [...previous.folders, folder],
     }));
     setActiveFolderId(folder.id);
+    setExplorerSelection({ kind: "folder", id: folder.id });
     setFavorites(false);
     setQuery("");
     setFolderDialog(null);
@@ -138,6 +142,9 @@ export default function App() {
         };
         setWorkspace(initial);
         setSelectedId(initial.notes[0]?.id ?? null);
+        setExplorerSelection(
+          initial.notes[0] ? { kind: "note", id: initial.notes[0].id } : null,
+        );
         setActiveFolderId(initial.notes[0]?.folderId ?? null);
         setLoaded(true);
       })
@@ -181,6 +188,7 @@ export default function App() {
       }));
       setActiveFolderId(folderId);
       setSelectedId(note.id);
+      setExplorerSelection({ kind: "note", id: note.id });
       setFavorites(false);
       setQuery("");
       setMobileEditor(true);
@@ -253,6 +261,16 @@ export default function App() {
     }
     if (!next.folders.some((folder) => folder.id === activeFolderId))
       setActiveFolderId(null);
+    if (
+      explorerSelection &&
+      !(explorerSelection.kind === "note" ? next.notes : next.folders).some(
+        (item) => item.id === explorerSelection.id,
+      )
+    ) {
+      setExplorerSelection(
+        next.notes[0] ? { kind: "note", id: next.notes[0].id } : null,
+      );
+    }
     setDeleteId(null);
     setDeleteFolderId(null);
   };
@@ -372,16 +390,20 @@ export default function App() {
         <FileExplorer
           notes={notes}
           folders={folders}
-          selectedId={selectedId}
+          selection={explorerSelection}
           activeFolderId={activeFolderId}
           query={query}
           favorites={favorites}
           onSelect={(note) => {
+            setExplorerSelection({ kind: "note", id: note.id });
             setSelectedId(note.id);
             setActiveFolderId(note.folderId);
             setMobileEditor(true);
           }}
-          onSelectFolder={setActiveFolderId}
+          onSelectFolder={(id) => {
+            setActiveFolderId(id);
+            setExplorerSelection(id === null ? null : { kind: "folder", id });
+          }}
           onMoveNote={relocateNote}
           onNewNote={addNote}
           onNewFolder={openFolderDialog}
