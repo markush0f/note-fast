@@ -9,7 +9,8 @@ Un cuaderno local, sin cuentas ni servicios externos. Interfaz en español, adap
 - **Vite** para desarrollo y producción.
 - **Tauri 2 + Rust** para la aplicación nativa.
 - **Tiptap 3 + ProseMirror**: encabezados, listas, tareas, citas, código, negrita, cursiva, subrayado e historial.
-- **Tailwind CSS 4** mediante `@tailwindcss/vite`, con estilos propios y sin fuentes externas.
+- **Tailwind CSS 4** mediante `@tailwindcss/vite`: toda la interfaz y el contenido de Tiptap usan utilidades Tailwind. `src/styles.css` solo importa Tailwind y define los tokens del tema.
+- **Iconoir React**: iconos SVG locales con tamaño y accesibilidad unificados en `src/components/icons.tsx`.
 - **IndexedDB** en navegador; **SQLite** mediante `tauri-plugin-sql` en Tauri.
 
 ## Desarrollo web
@@ -48,6 +49,9 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 ## Funciones
 
 - Crear, editar y eliminar notas con confirmación.
+- Carpetas y subcarpetas anidadas, con notas en cualquier nivel. Los ficheros son notas del editor, no archivos arbitrarios del sistema.
+- Selecciona una carpeta y usa los botones superiores para crear dentro de ella; selecciona `Notas` para crear en la raíz. El menú `…` de cada carpeta permite crear contenido, renombrarla o eliminarla junto con su contenido, previa confirmación.
+- La búsqueda y las favoritas recorren todas las carpetas y muestran la ruta de cada resultado.
 - Búsqueda por título y contenido, independiente de acentos y mayúsculas.
 - Vista de dos paneles: lista de notas y editor, sin navegación ni información decorativa.
 - Favoritas mediante el filtro de estrella y orden por última edición.
@@ -62,6 +66,8 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 
 `src/lib/storage.ts` selecciona el backend con `isTauri()`. En web se usa la clave `ntbk:workspace:v1` de IndexedDB. En Tauri, `sqlite:ntbk.db` se guarda en el directorio de configuración de la aplicación; una migración Rust crea la tabla `workspace`. Cada guardado reemplaza atómicamente un snapshot JSON del cuaderno. Las escrituras se serializan para evitar que una versión antigua sobrescriba otra nueva.
 
+El snapshot de versión 2 incluye notas y carpetas. Las notas del formato anterior se migran automáticamente a la raíz, conservando identificadores y contenido. Se mantiene la clave de almacenamiento original y la misma tabla SQLite: no hace falta cambiar la migración SQL. Los datos con un formato no compatible o una jerarquía inválida no se sobrescriben.
+
 Los datos del navegador y de la aplicación nativa **son independientes**. En web, cada origen (host/puerto) tiene su propio almacén. Borrar los datos del sitio o desinstalar la aplicación puede borrar las notas. No hay sincronización, cifrado, importación ni copias de seguridad automáticas. La exportación HTML permite conservar una copia legible de cada nota; la aplicación no vuelve a importarla. El servidor de desarrollo no equivale a una PWA instalable/offline.
 
 ## Estructura
@@ -69,14 +75,19 @@ Los datos del navegador y de la aplicación nativa **son independientes**. En we
 ```text
 src/
   App.tsx                    Cuaderno, selección y guardado
-  components/NoteEditor.tsx  Tiptap y barra de formato
+  components/NoteEditor.tsx  Tiptap y estilos de contenido con variantes Tailwind
+  components/FileExplorer.tsx Carpetas y notas anidadas
+  components/Dialog.tsx      Modal accesible con gestión de foco
+  components/ui.tsx          Botones y menús reutilizables con Tailwind
+  components/icons.tsx       Iconoir y configuración común de SVG
   lib/notes.ts               Modelo, búsqueda y utilidades
+  lib/workspace.ts           Jerarquía, migración y eliminación recursiva
   lib/storage.ts             Adaptador IndexedDB / SQLite
-  styles.css                 Tailwind 4 y diseño responsive
+  styles.css                 Importación de Tailwind 4 y tokens del tema
 src-tauri/
   src/lib.rs                 Inicio de Tauri y migración SQLite
   capabilities/default.json Permisos de la ventana principal
   tauri.conf.json            Configuración nativa y CSP
 ```
 
-Las pruebas cubren el modelo de notas, búsqueda, orden, extracción de texto y persistencia IndexedDB, incluidas escrituras concurrentes. No sustituyen pruebas de integración nativas de SQLite/Tauri.
+Las pruebas cubren notas, búsqueda, orden, extracción de texto, jerarquías de carpetas, eliminación recursiva, migración de notas antiguas y persistencia IndexedDB, incluidas escrituras concurrentes. No sustituyen pruebas de integración nativas de SQLite/Tauri.
