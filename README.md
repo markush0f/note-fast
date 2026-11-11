@@ -51,6 +51,9 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 - Crear, editar y eliminar notas con confirmación.
 - Carpetas y subcarpetas anidadas, con notas en cualquier nivel. Los ficheros son notas del editor, no archivos arbitrarios del sistema.
 - Selecciona una carpeta y usa los botones superiores para crear dentro de ella; selecciona `Notas` para crear en la raíz. El menú `…` de cada carpeta permite crear contenido, renombrarla o eliminarla junto con su contenido, previa confirmación.
+- Lista compacta de notas en una sola línea; la vista previa aparece al pasar el cursor.
+- Arrastra una nota a una carpeta o a `Notas` para devolverla a la raíz. La carpeta de destino se resalta y se abre al soltar. Al arrastrar desde la búsqueda o favoritas se muestran las carpetas de destino sin perder los resultados.
+- Alternativa para teclado y pantallas táctiles: menú `…` de la nota → `Mover a…`.
 - La búsqueda y las favoritas recorren todas las carpetas y muestran la ruta de cada resultado.
 - Búsqueda por título y contenido, independiente de acentos y mayúsculas.
 - Vista de dos paneles: lista de notas y editor, sin navegación ni información decorativa.
@@ -65,6 +68,8 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 ## Persistencia y privacidad
 
 `src/lib/storage.ts` selecciona el backend con `isTauri()`. En web se usa la clave `ntbk:workspace:v1` de IndexedDB. En Tauri, `sqlite:ntbk.db` se guarda en el directorio de configuración de la aplicación; una migración Rust crea la tabla `workspace`. Cada guardado reemplaza atómicamente un snapshot JSON del cuaderno. Las escrituras se serializan para evitar que una versión antigua sobrescriba otra nueva.
+
+La ventana de Tauri tiene `dragDropEnabled: false` para permitir el arrastre HTML5 interno en Windows. No se importan archivos arrastrados desde el sistema.
 
 El snapshot de versión 2 incluye notas y carpetas. Las notas del formato anterior se migran automáticamente a la raíz, conservando identificadores y contenido. Se mantiene la clave de almacenamiento original y la misma tabla SQLite: no hace falta cambiar la migración SQL. Los datos con un formato no compatible o una jerarquía inválida no se sobrescriben.
 
