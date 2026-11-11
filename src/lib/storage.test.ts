@@ -42,6 +42,19 @@ describe("IndexedDB persistence", () => {
     await saveWorkspace(empty());
     expect(await loadWorkspace()).toEqual(empty());
   });
+  it("persists toolbar position alongside notes without changing them", async () => {
+    const note = createNote();
+    const workspace: Workspace = {
+      ...empty(),
+      notes: [note],
+      toolbarPosition: "bottom-right",
+    };
+    await saveWorkspace(workspace);
+    expect(await loadWorkspace()).toEqual(workspace);
+    await saveWorkspace({ ...workspace, toolbarPosition: "top-left" });
+    expect((await loadWorkspace())?.toolbarPosition).toBe("top-left");
+    expect((await loadWorkspace())?.notes).toEqual([note]);
+  });
   it("serializes concurrent snapshots so the newest one wins", async () => {
     const note = createNote();
     await Promise.all([
