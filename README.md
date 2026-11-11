@@ -58,7 +58,8 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 - Búsqueda por título y contenido, independiente de acentos y mayúsculas.
 - Vista de dos paneles: lista de notas y editor, sin navegación ni información decorativa.
 - Favoritas mediante el filtro de estrella y orden por última edición.
-- Barra de formato básica; el resto de herramientas se despliega desde `…`.
+- Barra de herramientas separada del documento, anclada a cualquiera de las cuatro esquinas del editor. Se puede arrastrar desde el asa con ratón, lápiz o pantalla táctil y soltar en una esquina. Escape cancela el movimiento. El botón `Posición de la barra` mantiene una alternativa para teclado; la elección se guarda para todo el cuaderno en IndexedDB o SQLite. Permanece visible al desplazar el texto, sin taparlo.
+- Formato básico visible; el resto de herramientas se despliega desde `…`.
 - Guardado automático, estado visible de guardado y reintento en caso de error.
 - Menú `…` de la nota para marcar como favorita, exportar HTML o eliminar.
 - Icono personalizable por nota y carpeta: menú `…` → `Cambiar icono`. Catálogo de más de 100 iconos Iconoir, con búsqueda por nombre y sinónimos, filtros por categoría y opción de restaurar el predeterminado. La elección se guarda localmente y se conserva al renombrar carpetas o mover notas; los cuadernos anteriores siguen siendo compatibles.
@@ -81,12 +82,14 @@ Los datos del navegador y de la aplicación nativa **son independientes**. En we
 ```text
 src/
   App.tsx                    Cuaderno, selección y guardado
-  components/NoteEditor.tsx  Tiptap y estilos de contenido con variantes Tailwind
+  components/NoteEditor.tsx  Documento, Tiptap y zona de herramientas
+  components/EditorToolbar.tsx Formato y selector de posición de la barra
   components/FileExplorer.tsx Carpetas y notas anidadas
   components/Dialog.tsx      Modal accesible con gestión de foco
   components/ui.tsx          Botones y menús reutilizables con Tailwind
   components/icons.tsx       Iconoir y configuración común de SVG
   lib/notes.ts               Modelo, búsqueda y utilidades
+  lib/editor-layout.ts       Posiciones de la barra y preferencia predeterminada
   lib/workspace.ts           Jerarquía, migración y eliminación recursiva
   lib/storage.ts             Adaptador IndexedDB / SQLite
   styles.css                 Importación de Tailwind 4 y tokens del tema
