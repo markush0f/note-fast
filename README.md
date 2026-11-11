@@ -45,13 +45,13 @@ Con Docker Desktop abierto, desde la raíz del proyecto:
 docker compose up --build -d
 ```
 
-Abre **http://127.0.0.1:1420**. Compose arranca PostgreSQL, genera y conserva el secreto de autenticación, aplica las migraciones y levanta backend y frontend. No necesitas crear un `.env` ni instalar Bun para esta opción.
+Abre **http://127.0.0.1:1420**. Compose arranca PostgreSQL, genera y conserva el secreto de autenticación, aplica las migraciones y levanta backend y frontend con hot reload. Los cambios en `src/` y `server/src/` se reflejan sin reconstruir imágenes. No necesitas crear un `.env` ni instalar Bun para esta opción.
 
 - Estado: `docker compose ps -a`
 - Logs: `docker compose logs -f backend frontend`
 - Detener conservando los datos: `docker compose down`
 
-Los cambios de código requieren repetir el comando con `--build`. **`docker compose down -v` elimina las cuentas y el secreto guardados**, no lo uses para detener la aplicación normalmente.
+Para cambios en dependencias o Dockerfile, reconstruye con `docker compose up --build -d`. **`docker compose down -v` elimina las cuentas y el secreto guardados**, no lo uses para detener la aplicación normalmente.
 
 Consulta **[server/README.md](server/README.md)** para desarrollo y pruebas. Telegram y recordatorios aún no están implementados.
 

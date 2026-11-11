@@ -14,15 +14,15 @@ No necesitas Bun, PostgreSQL ni un `.env` en el equipo. Compose:
 
 1. Arranca PostgreSQL y espera a su comprobación de salud.
 2. Ejecuta `migrate`, que genera un secreto aleatorio persistente y aplica las migraciones. Si falla, el backend no arranca.
-3. Arranca el backend y espera a `/ready`.
-4. Sirve el frontend compilado con Nginx y reenvía `/api/*` al backend.
+3. Arranca el backend con un watcher por polling (reinicio al cambiar TypeScript) y espera a `/ready`.
+4. Sirve el frontend con Vite, hot reload y proxy de `/api/*` al backend.
 
 - **Aplicación:** http://127.0.0.1:1420
 - **Backend listo:** http://127.0.0.1:3000/ready
 - **Perfil a través del frontend:** http://127.0.0.1:1420/api/me (401 hasta iniciar sesión).
 - **Cuaderno autenticado:** `GET`/`PUT http://127.0.0.1:1420/api/workspace`.
 
-La primera vez que una cuenta sin cuaderno inicia sesión, la web importa el cuaderno local existente, si lo hay, sin borrar la copia local. Es una compilación estática, sin recarga en caliente: tras cambiar código vuelve a ejecutar `docker compose up --build -d`. No ejecutes Vite en paralelo en el puerto 1420.
+La primera vez que una cuenta sin cuaderno inicia sesión, la web importa el cuaderno local existente, si lo hay, sin borrar la copia local. Docker monta `src/` y `server/src/`: los cambios del frontend activan HMR y los del backend reinician el proceso Bun automáticamente mediante polling, compatible con los volúmenes de Docker Desktop. Los cambios de dependencias requieren `docker compose up --build -d`. No ejecutes Vite en paralelo en el puerto 1420.
 
 ```sh
 docker compose ps -a

@@ -11,8 +11,12 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
-    proxy: { "/api": "http://127.0.0.1:3000" },
-    watch: { ignored: ["**/src-tauri/**"] },
+    proxy: { "/api": process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:3000" },
+    watch: {
+      ignored: ["**/src-tauri/**"],
+      usePolling: process.env.VITE_DOCKER === "true",
+      interval: 250,
+    },
   },
   envPrefix: ["VITE_", "TAURI_ENV_*"],
   build: {

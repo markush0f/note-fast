@@ -1,4 +1,4 @@
-# Entorno local completo: docker compose up --build
+# Desarrollo local con hot reload: docker compose up --build
 x-backend: &backend
   image: ntbk-backend:local
   build:
@@ -37,6 +37,8 @@ services:
     command: ["migrate"]
     volumes:
       - ntbk-auth:/var/lib/ntbk
+      - ./server/src:/app/server/src:ro
+      - ./server/docker:/app/server/docker:ro
     depends_on:
       db:
         condition: service_healthy
@@ -44,11 +46,14 @@ services:
 
   backend:
     <<: *backend
+    entrypoint: ["bun", "server/docker/watch.ts"]
     command: ["start"]
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
       - ntbk-auth:/var/lib/ntbk:ro
+      - ./server/src:/app/server/src:ro
+      - ./server/docker:/app/server/docker:ro
     depends_on:
       db:
         condition: service_healthy
@@ -65,14 +70,26 @@ services:
   frontend:
     build:
       context: .
-      target: frontend
+      target: dependencies
+    command: ["bun", "--bun", "run", "dev", "--host", "0.0.0.0"]
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:3000
+      VITE_DOCKER: "true"
+    volumes:
+      - ./src:/app/src:ro
+      - ./public:/app/public:ro
+      - ./index.html:/app/index.html:ro
+      - ./vite.config.ts:/app/vite.config.ts:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./tsconfig.app.json:/app/tsconfig.app.json:ro
+      - ./tsconfig.node.json:/app/tsconfig.node.json:ro
     ports:
-      - "127.0.0.1:1420:80"
+      - "127.0.0.1:1420:1420"
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      test: ["CMD", "bun", "-e", "const r = await fetch('http://127.0.0.1:1420'); process.exit(r.ok ? 0 : 1)"]
       interval: 10s
       timeout: 5s
       retries: 5
