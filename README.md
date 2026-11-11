@@ -49,9 +49,12 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 
 - Crear, editar y eliminar notas con confirmación.
 - Búsqueda por título y contenido, independiente de acentos y mayúsculas.
-- Favoritas, orden por última edición y contador de palabras.
+- Vista de dos paneles: lista de notas y editor, sin navegación ni información decorativa.
+- Favoritas mediante el filtro de estrella y orden por última edición.
+- Barra de formato básica; el resto de herramientas se despliega desde `…`.
 - Guardado automático, estado visible de guardado y reintento en caso de error.
-- Exportación de la nota activa como HTML desde el botón de descarga.
+- Menú `…` de la nota para marcar como favorita, exportar HTML o eliminar.
+- Los cuadernos nuevos empiezan con una nota vacía; las notas existentes se conservan.
 - `Ctrl/Cmd+K`: buscar; `Ctrl/Cmd+Alt+N`: nueva nota.
 - Atajos del editor: `Ctrl/Cmd+B`, `I`, `U`, `Z` y `Shift+Z`.
 

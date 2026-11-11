@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -15,6 +16,7 @@ import {
   Code2,
   Undo2,
   Redo2,
+  Ellipsis,
   type LucideIcon,
 } from "lucide-react";
 import type { Note } from "../lib/notes";
@@ -25,11 +27,12 @@ interface Props {
 }
 
 export default function NoteEditor({ note, onChange }: Props) {
+  const [expanded, setExpanded] = useState(false);
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ link: { openOnClick: false } }),
       Placeholder.configure({
-        placeholder: "Una idea, una lista, un nuevo comienzo…",
+        placeholder: "Escribe…",
       }),
       TaskList,
       TaskItem.configure({ nested: true }),
@@ -151,8 +154,13 @@ export default function NoteEditor({ note, onChange }: Props) {
         role="toolbar"
         aria-label="Formato de texto"
       >
-        {tools.map(
-          ({ label, icon: Icon, active, disabled, action, divider }) => (
+        {tools
+          .filter(
+            (tool) =>
+              expanded ||
+              [Bold, Italic, Heading2, List].some((icon) => icon === tool.icon),
+          )
+          .map(({ label, icon: Icon, active, disabled, action, divider }) => (
             <span className={divider ? "tool-group" : ""} key={label}>
               <button
                 type="button"
@@ -166,8 +174,19 @@ export default function NoteEditor({ note, onChange }: Props) {
                 <Icon size={17} />
               </button>
             </span>
-          ),
-        )}
+          ))}
+        <button
+          type="button"
+          className={`icon-button ${expanded ? "is-active" : ""}`}
+          aria-label={
+            expanded ? "Menos opciones de formato" : "Más opciones de formato"
+          }
+          title={expanded ? "Menos opciones" : "Más opciones"}
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          <Ellipsis size={17} />
+        </button>
       </div>
       <EditorContent editor={editor} />
     </>
