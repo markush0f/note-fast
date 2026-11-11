@@ -1,0 +1,83 @@
+# Entorno local completo: docker compose up --build
+x-backend: &backend
+  image: ntbk-backend:local
+  build:
+    context: .
+    target: backend
+  environment:
+    NODE_ENV: development
+    HOST: 0.0.0.0
+    PORT: "3000"
+    DATABASE_URL: postgresql://ntbk:ntbk_dev_only@db:5432/ntbk
+    BETTER_AUTH_URL: http://127.0.0.1:1420
+    APP_ORIGINS: http://127.0.0.1:1420,http://localhost:1420
+    # Opcional: si se omite, migrate genera un secreto en un volumen privado.
+    BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ntbk
+      POSTGRES_PASSWORD: ntbk_dev_only
+      POSTGRES_DB: ntbk
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ntbk-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ntbk -d ntbk"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend
+    command: ["migrate"]
+    volumes:
+      - ntbk-auth:/var/lib/ntbk
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    <<: *backend
+    command: ["start"]
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ntbk-auth:/var/lib/ntbk:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "bun", "-e", "const r = await fetch('http://127.0.0.1:3000/ready'); process.exit(r.ok ? 0 : 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      target: frontend
+    ports:
+      - "127.0.0.1:1420:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  ntbk-postgres:
+  ntbk-auth:
