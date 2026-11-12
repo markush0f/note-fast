@@ -67,5 +67,8 @@ export function mergeWorkspaces(base: Workspace, local: Workspace, remote: Works
     version: 3, notes: normalized, folders,
     theme: same(local.theme, base.theme) ? remote.theme : local.theme,
     toolbarPosition: same(local.toolbarPosition, base.toolbarPosition) ? remote.toolbarPosition : local.toolbarPosition,
+    title: same(local.title, base.title) ? remote.title : local.title,
+    description: same(local.description, base.description) ? remote.description : local.description,
+    coverIcon: same(local.coverIcon, base.coverIcon) ? remote.coverIcon : local.coverIcon,
   };
 }

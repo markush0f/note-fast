@@ -22,6 +22,12 @@ describe('offline three-way merge', () => {
     expect(result.notes.find(note => note.content === 'local')?.title).toContain('(conflicto)');
     expect(mergeWorkspaces(base, edit('local'), result).notes).toHaveLength(2);
   });
+  it('merges notebook cover fields and preserves simultaneous independent cover edits', () => {
+    const before: Workspace = { ...base, title: 'Old', description: 'Old description' };
+    const local: Workspace = { ...before, title: 'Travel journal' };
+    const remote: Workspace = { ...before, description: 'Summer trip' };
+    expect(mergeWorkspaces(before, local, remote)).toMatchObject({ title: 'Travel journal', description: 'Summer trip' });
+  });
   it('ignores JSONB property ordering when comparing records', () => {
     const remote = { ...base, notes: [Object.fromEntries(Object.entries(note).reverse()) as unknown as typeof note] };
     const result = mergeWorkspaces(base, edit('only local edit'), remote);

@@ -62,6 +62,7 @@ import type { ItemTarget } from "./lib/item-icons";
 import { DEFAULT_TOOLBAR_POSITION } from "./lib/editor-layout";
 
 const NoteEditor = lazy(() => import("./components/NoteEditor"));
+const NotebookCover = lazy(() => import('./components/NotebookCover'));
 
 export default function App() {
   const notebookRef = useRef<OfflineNotebook | null>(null);
@@ -202,10 +203,9 @@ export default function App() {
         setAttachmentAccount(user.id);
         const initial = purgeTrash(notebook.workspace);
         setWorkspaceState(initial);
-        const first = initial.notes.find(note => !note.deletedAt);
-        setSelectedId(first?.id ?? null);
-        setExplorerSelection(first ? { kind: 'note', id: first.id } : null);
-        setActiveFolderId(first?.folderId ?? null);
+        setSelectedId(null);
+        setExplorerSelection(null);
+        setActiveFolderId(null);
         setLoaded(true);
         notebook.update(initial);
       })().catch((error: unknown) => {
@@ -369,7 +369,7 @@ export default function App() {
   };
 
   if (isTauri())
-    return <main className="grid min-h-dvh place-items-center p-6 text-center text-muted"><div><h1 className="mb-2 text-lg text-ink">Acceso con cuenta aún no disponible</h1><p>Inicia sesión desde la versión web para acceder a tus notas sincronizadas.</p></div></main>;
+    return <main className="grid min-h-dvh place-items-center p-6 text-center text-muted"><div><h1 className="mb-2 text-lg text-ink">Acceso con cuenta aún no disponible</h1><p>Inicia sesión desde la versión web para acceder a tu cuaderno sincronizado.</p></div></main>;
   if (authState === "checking")
     return <main className="grid min-h-dvh place-items-center text-muted" role="status">Comprobando sesión…</main>;
   if (authState === "signed-out")
@@ -384,7 +384,7 @@ export default function App() {
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center text-muted">
         <WarningCircle size={24} />
-        <h1 className="text-lg text-ink">No pudimos abrir tus notas</h1>
+        <h1 className="text-lg text-ink">No pudimos abrir tu cuaderno</h1>
         <p className="max-w-100 text-[13px]">
           {loadError} Tus datos no se han sobrescrito.
         </p>
@@ -398,7 +398,7 @@ export default function App() {
       <main
         className="grid min-h-dvh place-items-center text-muted"
         role="status"
-        aria-label="Abriendo notas"
+        aria-label="Abriendo cuaderno"
       >
         <Refresh className="animate-spin motion-reduce:animate-none" />
       </main>
@@ -408,10 +408,10 @@ export default function App() {
     <div className={`app-shell h-dvh overflow-hidden ${sidebarVisible ? "sidebar-expanded" : "sidebar-collapsed"}`}>
       <aside
         className={`app-sidebar ${mobileEditor ? "hidden min-[651px]:flex" : "flex"} min-h-0 flex-col border-line bg-sidebar min-[651px]:border-r`}
-        aria-label="Lista de notas"
+        aria-label="Cuaderno"
       >
         <header className="flex items-center justify-between px-5 pt-6 pb-4">
-          <h1 className="text-[15px] font-semibold">Notas</h1>
+          <h1 className="text-[15px] font-semibold">Cuaderno</h1>
           <div className="flex items-center gap-1">
             <Button
               variant="icon"
@@ -423,8 +423,8 @@ export default function App() {
             </Button>
             <Button
               variant="icon"
-              title="Nueva nota (Ctrl+Alt+N)"
-              aria-label="Nueva nota"
+              title="Nueva página (Ctrl+Alt+N)"
+              aria-label="Nueva página"
               onClick={() => addNote()}
             >
               <Plus size={19} />
@@ -447,7 +447,7 @@ export default function App() {
             <input
               ref={searchRef}
               className="min-w-0 w-full bg-transparent text-xs text-ink outline-none placeholder:text-muted"
-              aria-label="Buscar notas"
+              aria-label="Buscar en el cuaderno"
               placeholder="Buscar"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -486,8 +486,10 @@ export default function App() {
             setMobileEditor(true);
           }}
           onSelectFolder={(id) => {
+            setSelectedId(null);
             setActiveFolderId(id);
             setExplorerSelection(id === null ? null : { kind: "folder", id });
+            setMobileEditor(true);
           }}
           onMoveNote={relocateNote}
           onNewNote={addNote}
@@ -543,7 +545,7 @@ export default function App() {
           <Button
             variant="icon"
             className="min-[651px]:hidden"
-            aria-label="Volver a las notas"
+            aria-label="Volver al cuaderno"
             onClick={() => setMobileEditor(false)}
           >
             <ArrowLeft size={18} />
@@ -709,10 +711,28 @@ export default function App() {
               }}
             />
           </Suspense></EditorErrorBoundary>
+        ) : explorerSelection === null ? (
+          <Suspense fallback={<p className="grid flex-1 place-content-center text-sm text-muted">Abriendo portada…</p>}>
+            <NotebookCover
+              workspace={workspace}
+              notes={notes}
+              folders={folders}
+              onChange={changes => setWorkspace(previous => ({ ...previous, ...changes }))}
+              onOpenNote={note => {
+                setSelectedId(note.id); setActiveFolderId(note.folderId);
+                setExplorerSelection({ kind: 'note', id: note.id }); setMobileEditor(true);
+              }}
+              onOpenFolder={folder => {
+                setActiveFolderId(folder.id); setExplorerSelection({ kind: 'folder', id: folder.id });
+              }}
+              onNewNote={() => addNote(null)}
+            />
+          </Suspense>
         ) : (
-          <div className="grid flex-1 place-content-center p-6">
-            <Button variant="primary" onClick={() => addNote()}>
-              <Plus size={16} /> Nueva nota
+          <div className="grid flex-1 place-content-center gap-3 p-6 text-center">
+            <p className="text-sm text-muted">Carpeta seleccionada</p>
+            <Button variant="primary" onClick={() => addNote(activeFolderId)}>
+              <Plus size={16} /> Nueva página
             </Button>
           </div>
         )}
@@ -759,16 +779,13 @@ export default function App() {
           }
           onExport={() => downloadWorkspace(workspace)}
           onImport={(imported) => {
-            const first = imported.notes.find((note) => !note.deletedAt);
             setWorkspace(imported);
-            setSelectedId(first?.id ?? null);
-            setExplorerSelection(
-              first ? { kind: "note", id: first.id } : null,
-            );
-            setActiveFolderId(first?.folderId ?? null);
+            setSelectedId(null);
+            setExplorerSelection(null);
+            setActiveFolderId(null);
             setQuery("");
             setFavorites(false);
-            setMobileEditor(Boolean(first));
+            setMobileEditor(false);
             setSettingsOpen(false);
           }}
         />
@@ -807,7 +824,7 @@ export default function App() {
               value={moveFolderId ?? ""}
               onChange={(event) => setMoveFolderId(event.target.value || null)}
             >
-              <option value="">Notas (raíz)</option>
+              <option value="">Cuaderno (raíz)</option>
               {folders
                 .map((folder) => ({
                   id: folder.id,

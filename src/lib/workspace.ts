@@ -24,6 +24,9 @@ export interface Workspace {
   folders: Folder[];
   toolbarPosition?: ToolbarPlacement;
   theme?: Theme;
+  title?: string;
+  description?: string;
+  coverIcon?: ItemIconId;
 }
 
 export function createFolder(
@@ -98,6 +101,9 @@ export function migrateWorkspace(value: unknown): Workspace | undefined {
     })),
     folders: folders.map(normalizeItemIcon),
     ...(isTheme(source?.theme) ? { theme: source.theme } : {}),
+    ...(typeof source?.title === 'string' ? { title: source.title.slice(0, 120) } : {}),
+    ...(typeof source?.description === 'string' ? { description: source.description.slice(0, 500) } : {}),
+    ...(isItemIconId(source?.coverIcon) ? { coverIcon: source.coverIcon } : {}),
     ...(isToolbarPlacement(source?.toolbarPosition)
       ? { toolbarPosition: source.toolbarPosition }
       : {}),
