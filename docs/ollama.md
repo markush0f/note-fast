@@ -2,7 +2,7 @@
 
 El panel **Asistente** de la versión web puede conversar con modelos instalados en Ollama. Incluye selector de modelo, historial en memoria, nueva conversación, reintento y cancelación. Enter envía; Mayús+Enter inserta un salto de línea.
 
-**Por ahora no lee ni modifica páginas, cuadernos ni adjuntos.** Solo se envían los mensajes del chat y unas instrucciones del asistente. No es todavía un buscador sobre tus notas. El historial no se guarda en PostgreSQL ni en el navegador: desaparece al recargar o cerrar sesión, pero se conserva al ocultar el panel. Las respuestas se muestran completas al terminar la generación, no token a token.
+El chat comparte con Ollama el texto de la **página actual** para que pueda preparar propuestas cuando le pidas explícitamente redactarla o cambiarla. No puede buscar otras páginas, cuadernos ni adjuntos. Una propuesta de añadir/reemplazar texto se muestra en el chat y solo se aplica al pulsar **Aplicar propuesta**; puedes descartarla. Si la página cambió desde que se generó la propuesta, no se aplica. El texto propuesto se trata como texto plano y se escapa antes de insertarlo, nunca como HTML ejecutable. Aún no se editan los bloques de hoja de cálculo incrustados. El historial no se guarda en PostgreSQL ni en el navegador: desaparece al recargar o cerrar sesión, pero se conserva al ocultar el panel. Las respuestas se muestran completas al terminar la generación, no token a token.
 
 ## Preparar Ollama
 
@@ -62,7 +62,7 @@ Arranca o reinicia el backend (`bun run server:dev`) y el frontend (`bun run dev
 4. **Detener** cancela la petición y recupera el borrador. Una respuesta fallida también recupera el borrador para reenviarlo sin duplicar el mensaje.
 5. **Nueva conversación** borra el historial de este panel.
 
-El modelo puede equivocarse. Las respuestas se muestran como texto, sin ejecutar HTML ni acciones.
+El modelo puede equivocarse. Las respuestas y propuestas se muestran como texto, sin ejecutar HTML ni acciones.
 
 ## Límites y problemas frecuentes
 

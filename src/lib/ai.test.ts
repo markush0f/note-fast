@@ -12,10 +12,10 @@ describe('cliente de Ollama mediante el backend', () => {
   });
 
   it('envía exclusivamente modelo e historial y devuelve texto sin ejecutarlo', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(Response.json({ message: { role: 'assistant', content: '<script>alert(1)</script>' } }));
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ message: { role: 'assistant', content: '<script>alert(1)</script>' }, proposal: null }));
     vi.stubGlobal('fetch', fetchMock);
     const messages = [{ role: 'user' as const, content: 'Hola' }];
-    expect(await sendChat('ana', 'llama3.2', messages, new AbortController().signal)).toEqual({ role: 'assistant', content: '<script>alert(1)</script>' });
+    expect(await sendChat('ana', 'llama3.2', messages, new AbortController().signal)).toEqual({ message: { role: 'assistant', content: '<script>alert(1)</script>' }, proposal: null });
     expect(fetchMock.mock.calls[0][0]).toBe('/api/ai/chat');
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ model: 'llama3.2', messages });
   });

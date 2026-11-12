@@ -2,6 +2,9 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
+export interface PageProposal { action: 'append' | 'replace'; content: string; reason: string }
+export interface PageContext { id: string; title: string; content: string; sourceContent: string }
+export interface ChatReply { message: ChatMessage; proposal: PageProposal | null }
 
 const errors: Record<string, string> = {
   unauthorized: 'Inicia sesión para usar el asistente.',
@@ -34,8 +37,8 @@ export async function listModels(userId: string, signal: AbortSignal): Promise<s
   return data.models;
 }
 
-export async function sendChat(userId: string, model: string, messages: ChatMessage[], signal: AbortSignal): Promise<ChatMessage> {
-  const data = await request('/api/ai/chat', userId, signal, { model, messages });
-  if (data.message?.role !== 'assistant' || typeof data.message.content !== 'string' || !data.message.content.trim()) throw new Error('Ollama no ha devuelto una respuesta válida.');
-  return { role: 'assistant', content: data.message.content };
+export async function sendChat(userId: string, model: string, messages: ChatMessage[], signal: AbortSignal, page?: PageContext): Promise<ChatReply> {
+  const data = await request('/api/ai/chat', userId, signal, { model, messages, ...(page ? { page: { title: page.title, content: page.content } } : {}) });
+  if (data.message?.role !== 'assistant' || typeof data.message.content !== 'string' || (data.proposal !== null && (!data.proposal || !['append', 'replace'].includes(data.proposal.action) || typeof data.proposal.content !== 'string' || typeof data.proposal.reason !== 'string'))) throw new Error('Ollama no ha devuelto una respuesta válida.');
+  return { message: { role: 'assistant', content: data.message.content }, proposal: data.proposal };
 }

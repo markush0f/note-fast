@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Plus, Refresh, SendDiagonal, Sparks, Xmark } from './icons';
 import { Button } from './ui';
-import { listModels, sendChat, type ChatMessage } from '../lib/ai';
+import { listModels, sendChat, type ChatMessage, type PageContext, type PageProposal } from '../lib/ai';
 
 const suggestions = [
   'Ayúdame a ordenar mis ideas',
@@ -12,10 +12,12 @@ const suggestions = [
 interface ChatPanelProps {
   open: boolean;
   userId: string;
+  page?: PageContext;
+  onApplyProposal: (proposal: PageProposal, page: PageContext) => boolean;
   onClose: () => void;
 }
 
-export default function ChatPanel({ open, userId, onClose }: ChatPanelProps) {
+export default function ChatPanel({ open, userId, page, onApplyProposal, onClose }: ChatPanelProps) {
   const [draft, setDraft] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [models, setModels] = useState<string[]>([]);
@@ -23,6 +25,8 @@ export default function ChatPanel({ open, userId, onClose }: ChatPanelProps) {
   const [loadingModels, setLoadingModels] = useState(false);
   const [modelsError, setModelsError] = useState('');
   const [error, setError] = useState('');
+  const [proposal, setProposal] = useState<{ value: PageProposal; page: PageContext } | null>(null);
+  const [proposalNotice, setProposalNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -76,8 +80,12 @@ export default function ChatPanel({ open, userId, onClose }: ChatPanelProps) {
     setError('');
     setBusy(true);
     try {
-      const reply = await sendChat(userId, model, next, controller.signal);
-      if (requestRef.current === controller && !controller.signal.aborted) setMessages([...next, reply]);
+      const reply = await sendChat(userId, model, next, controller.signal, page);
+      if (requestRef.current === controller && !controller.signal.aborted) {
+        setMessages([...next, reply.message]);
+        setProposal(reply.proposal && page ? { value: reply.proposal, page } : null);
+        setProposalNotice('');
+      }
     } catch (cause) {
       if (requestRef.current !== controller) return;
       setMessages(messages);
@@ -102,7 +110,7 @@ export default function ChatPanel({ open, userId, onClose }: ChatPanelProps) {
           <Sparks size={18} className="text-secondary" />
           <h2 id="chat-title" className="text-[13px] font-semibold">Asistente</h2>
           <span className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">Ollama</span>
-          <Button variant="icon" className="ml-auto" title="Nueva conversación" aria-label="Nueva conversación" disabled={busy || !messages.length} onClick={() => { setMessages([]); setDraft(''); setError(''); inputRef.current?.focus(); }}>
+          <Button variant="icon" className="ml-auto" title="Nueva conversación" aria-label="Nueva conversación" disabled={busy || !messages.length} onClick={() => { setMessages([]); setDraft(''); setError(''); setProposal(null); setProposalNotice(''); inputRef.current?.focus(); }}>
             <Plus size={18} />
           </Button>
           <Button variant="icon" title="Ocultar chat" aria-label="Ocultar chat" onClick={onClose}><Xmark size={18} /></Button>
@@ -135,6 +143,20 @@ export default function ChatPanel({ open, userId, onClose }: ChatPanelProps) {
               <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-ink [overflow-wrap:anywhere]">{message.content}</p>
             </div>)}
           </div>}
+          {proposal && <section aria-label="Propuesta para la página" className="mt-6 rounded-xl border border-line bg-surface p-4">
+            <p className="text-xs font-semibold text-ink">Propuesta para «{proposal.page.title || 'Sin título'}»</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted">{proposal.value.reason}</p>
+            <p className="mt-3 max-h-44 overflow-y-auto whitespace-pre-wrap rounded border border-line bg-subtle p-3 text-xs leading-relaxed text-secondary">{proposal.value.content}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button variant="primary" disabled={busy} onClick={() => {
+                const accepted = onApplyProposal(proposal.value, proposal.page);
+                setProposalNotice(accepted ? 'Propuesta aplicada y guardada.' : 'La página cambió o ya no está abierta. Genera una propuesta nueva para evitar sobrescribir tus cambios.');
+                setProposal(null);
+              }}>Aplicar propuesta</Button>
+              <Button variant="secondary" disabled={busy} onClick={() => { setProposal(null); setProposalNotice('Propuesta descartada.'); }}>Descartar</Button>
+            </div>
+          </section>}
+          {proposalNotice && <p role="status" className="mt-3 text-xs leading-relaxed text-muted">{proposalNotice}</p>}
           {busy && <p role="status" className="mt-5 flex items-center gap-2 text-xs text-muted"><Refresh size={13} className="animate-spin motion-reduce:animate-none" />Generando respuesta…</p>}
         </div>
 
@@ -152,7 +174,7 @@ export default function ChatPanel({ open, userId, onClose }: ChatPanelProps) {
                 <Button type="submit" variant="primary" className="!rounded-lg !p-2" disabled={!draft.trim() || !model || !models.includes(model) || loadingModels || !userId} aria-label="Enviar mensaje" title="Enviar mensaje"><SendDiagonal size={16} /></Button>}
             </div>
           </form>
-          <p id="chat-notice" className="mt-2.5 text-center text-[10px] leading-relaxed text-muted">Sin acceso a tus páginas. El historial solo dura esta sesión.</p>
+          <p id="chat-notice" className="mt-2.5 text-center text-[10px] leading-relaxed text-muted">{page ? 'Solo se comparte esta página. Los cambios requieren tu confirmación.' : 'Sin página actual: el asistente no recibe contenido del cuaderno.'} El historial solo dura esta sesión.</p>
         </div>
       </aside>
     </div>

@@ -9,7 +9,7 @@ A digital notebook with rich-text pages organized into independent notebooks, an
 - Embedded charts and spreadsheets with formulas and multiple sheets.
 - Inline images and downloadable PDF attachments (10 MiB per file, 100 MiB per account).
 - Installable web app with offline editing and automatic sync; conflicting page edits keep both versions.
-- Collapsible assistant chat using local Ollama models (conversation only; no notebook access yet). See [Ollama setup](docs/ollama.md).
+- Collapsible assistant chat using local Ollama models, with confirmed text proposals for the current page. Embedded spreadsheet editing is not yet supported. See [Ollama setup](docs/ollama.md).
 - Autosave, a 30-day trash, and light/dark themes.
 - A customizable cover for each notebook with a title, description, icon, favorites, and its pages.
 - Notebook backup and restore, plus per-page HTML and PDF export (via the browser print dialog).

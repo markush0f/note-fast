@@ -36,18 +36,60 @@ describe('proxy de Ollama', () => {
   })
 
   it('envía solo el historial validado y las instrucciones del servidor', async () => {
-    upstream.mockResolvedValue(Response.json({ message: { role: 'assistant', content: 'Hola Ana' } }))
+    upstream.mockResolvedValue(Response.json({ message: { role: 'assistant', content: JSON.stringify({ reply: 'Hola Ana', proposal: { action: 'none', content: '', reason: '' } }) } }))
     const response = await setup().request('/api/ai/chat', { method: 'POST', headers, body: JSON.stringify({ ...chat, url: 'http://evil.test', tools: ['delete'], messages: [{ ...chat.messages[0], images: ['secret'] }] }) })
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ message: { role: 'assistant', content: 'Hola Ana' } })
+    expect(await response.json()).toEqual({ message: { role: 'assistant', content: 'Hola Ana' }, proposal: null })
     const options = upstream.mock.calls[0][1]!
     const body = JSON.parse(String(options.body))
     expect(upstream.mock.calls[0][0]).toBe('http://ollama:11434/api/chat')
     expect(body.stream).toBe(false)
     expect(body.messages[0].role).toBe('system')
     expect(body.messages[1]).toEqual(chat.messages[0])
+    expect(body.format.type).toBe('object')
     expect(body.tools).toBeUndefined()
     expect(options.headers).toEqual({ 'Content-Type': 'application/json' })
+  })
+
+  it('usa una respuesta de respaldo si el modelo devuelve propuesta sin texto explicativo', async () => {
+    upstream.mockResolvedValue(Response.json({ message: { content: JSON.stringify({ reply: '', proposal: { action: 'append', content: 'Texto', reason: 'Añade texto' } }) } }))
+    const response = await setup().request('/api/ai/chat', { method: 'POST', headers, body: JSON.stringify({ ...chat, page: { title: 'Página', content: '' } }) })
+    expect(await response.json()).toEqual({ message: { role: 'assistant', content: 'He preparado una propuesta para la página. Revísala antes de aplicarla.' }, proposal: { action: 'append', content: 'Texto', reason: 'Añade texto' } })
+  })
+
+  it('pasa solo el contexto de la página y devuelve una propuesta validada', async () => {
+    const proposal = { action: 'append', content: 'Notas nuevas', reason: 'Añade lo que pediste' }
+    upstream.mockResolvedValue(Response.json({ message: { content: JSON.stringify({ reply: 'Preparé el texto.', proposal }) } }))
+    const page = { title: 'Proyecto', content: 'Contexto de mi nota' }
+    const response = await setup().request('/api/ai/chat', { method: 'POST', headers, body: JSON.stringify({ ...chat, page }) })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ message: { role: 'assistant', content: 'Preparé el texto.' }, proposal })
+    const body = JSON.parse(String(upstream.mock.calls[0][1]?.body))
+    expect(body.messages[1].content).toContain('Contexto de mi nota')
+    expect(body.messages[1].content).toContain('Proyecto')
+  })
+
+  it.each([
+    { ...chat, page: { title: 'x', content: 'x'.repeat(16001) } },
+    { ...chat, page: { title: 'x'.repeat(501), content: '' } },
+    { ...chat, page: { title: 'x', content: 'x'.repeat(16000) }, messages: [{ role: 'user', content: 'x'.repeat(16000) }, { role: 'assistant', content: 'y'.repeat(16000) }, { role: 'user', content: 'z'.repeat(16000) }] },
+  ])('rechaza contexto de página excesivo %j', async body => {
+    const response = await setup().request('/api/ai/chat', { method: 'POST', headers, body: JSON.stringify(body) })
+    expect(response.status).toBe(400)
+    expect(upstream).not.toHaveBeenCalled()
+  })
+
+  it('descarta propuestas si la salida estructurada del modelo es inválida', async () => {
+    const app = setup()
+    for (const result of [
+      { reply: 'Ok', proposal: { action: 'delete', content: 'x', reason: 'x' } },
+      { reply: 'Ok', proposal: { action: 'replace', content: 'x'.repeat(12001), reason: 'x' } },
+      { reply: 'Ok', proposal: { action: 'append', content: 'x', reason: 'x' } },
+    ]) {
+      upstream.mockResolvedValueOnce(Response.json({ message: { content: JSON.stringify(result) } }))
+      const body = { ...chat, ...(result.proposal.action === 'append' ? {} : { page: { title: 'Página', content: 'Actual' } }) }
+      expect((await app.request('/api/ai/chat', { method: 'POST', headers, body: JSON.stringify(body) })).status).toBe(502)
+    }
   })
 
   it.each([
@@ -82,7 +124,7 @@ describe('proxy de Ollama', () => {
   })
 
   it('rechaza respuestas sin texto o excesivas', async () => {
-    upstream.mockResolvedValueOnce(Response.json({ message: { content: '' } }))
+    upstream.mockResolvedValueOnce(Response.json({ message: { content: 'not json' } }))
     const app = setup()
     expect((await app.request('/api/ai/chat', { method: 'POST', headers, body: JSON.stringify(chat) })).status).toBe(502)
     upstream.mockResolvedValueOnce(new Response('a'.repeat(1024 * 1024 + 1)))
@@ -98,9 +140,9 @@ describe('proxy de Ollama', () => {
     const first = app.request('/api/ai/chat', { method: 'POST', headers, body: JSON.stringify(chat) })
     await ready
     expect((await app.request('/api/ai/chat', { method: 'POST', headers, body: JSON.stringify(chat) })).status).toBe(429)
-    finish(Response.json({ message: { content: 'Hola' } }))
+    finish(Response.json({ message: { content: JSON.stringify({ reply: 'Hola', proposal: { action: 'none', content: '', reason: '' } }) } }))
     expect((await first).status).toBe(200)
-    upstream.mockResolvedValueOnce(Response.json({ message: { content: 'Otra respuesta' } }))
+    upstream.mockResolvedValueOnce(Response.json({ message: { content: JSON.stringify({ reply: 'Otra respuesta', proposal: { action: 'none', content: '', reason: '' } }) } }))
     expect((await app.request('/api/ai/chat', { method: 'POST', headers, body: JSON.stringify(chat) })).status).toBe(200)
   })
 })

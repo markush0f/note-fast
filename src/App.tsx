@@ -26,7 +26,8 @@ import {
   Settings,
 } from "./components/icons";
 import { Button, iconButtonClass, MenuItems } from "./components/ui";
-import { createNote, type Note } from "./lib/notes";
+import { createNote, plainText, type Note } from "./lib/notes";
+import type { PageContext, PageProposal } from "./lib/ai";
 import { checkBlockContentSize } from './lib/note-blocks';
 import { printNote } from './lib/print-note';
 import { hasImportedWorkspaceToCloud, loadWorkspace, markWorkspaceImportedToCloud } from "./lib/storage";
@@ -113,6 +114,14 @@ export default function App() {
   const actionsRef = useRef<HTMLDetailsElement>(null);
   const actionsButtonRef = useRef<HTMLElement>(null);
   const selected = notes.find((note) => note.id === selectedId);
+  const applyAssistantProposal = (proposal: PageProposal, source: PageContext): boolean => {
+    const current = notes.find(note => note.id === source.id);
+    if (!current || selectedId !== source.id || current.content !== source.sourceContent) return false;
+    const html = proposal.content.split(/\n{2,}/).map(paragraph => `<p>${paragraph.split('\n').map(line => line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;')).join('<br>')}</p>`).join('');
+    const content = proposal.action === 'replace' ? html : `${current.content}${html}`;
+    updateNote(current.id, { content });
+    return true;
+  };
   const iconItem =
     iconTarget?.kind === "note"
       ? notes.find((note) => note.id === iconTarget.id)
@@ -697,6 +706,8 @@ export default function App() {
       <ChatPanel
         key={user?.id ?? 'signed-out'}
         userId={user?.id ?? ''}
+        page={selected ? { id: selected.id, title: selected.title, content: plainText(selected.content).slice(0, 16000), sourceContent: selected.content } : undefined}
+        onApplyProposal={applyAssistantProposal}
         open={chatOpen}
         onClose={() => setChatOpen(false)}
       />

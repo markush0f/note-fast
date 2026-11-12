@@ -11,7 +11,7 @@ let container: HTMLDivElement;
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(listModels).mockResolvedValue(['llama3.2:latest']);
-  vi.mocked(sendChat).mockResolvedValue({ role: 'assistant', content: 'Hola, ¿en qué te ayudo?' });
+  vi.mocked(sendChat).mockResolvedValue({ message: { role: 'assistant', content: 'Hola, ¿en qué te ayudo?' }, proposal: null });
   (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   container = document.createElement('div');
   document.body.append(container);
@@ -26,7 +26,7 @@ function Harness() {
   const [open, setOpen] = useState(false);
   return <>
     <button aria-label="Mostrar chat" aria-expanded={open} onClick={() => setOpen(value => !value)}>Asistente</button>
-    <ChatPanel open={open} userId="ana" onClose={() => setOpen(false)} />
+    <ChatPanel open={open} userId="ana" page={{ id: 'page-1', title: 'Mi página', content: 'Contenido', sourceContent: '<p>Contenido</p>' }} onApplyProposal={() => true} onClose={() => setOpen(false)} />
   </>;
 }
 async function openChat() {
@@ -71,7 +71,7 @@ describe('chat lateral con Ollama', () => {
     expect(button('Enviar mensaje').disabled).toBe(true);
     suggest();
     await submit();
-    expect(sendChat).toHaveBeenCalledWith('ana', 'llama3.2:latest', [{ role: 'user', content: 'Ayúdame a ordenar mis ideas' }], expect.any(AbortSignal));
+    expect(sendChat).toHaveBeenCalledWith('ana', 'llama3.2:latest', [{ role: 'user', content: 'Ayúdame a ordenar mis ideas' }], expect.any(AbortSignal), { id: 'page-1', title: 'Mi página', content: 'Contenido', sourceContent: '<p>Contenido</p>' });
     expect(container.querySelector('[role="log"]')!.textContent).toContain('Hola, ¿en qué te ayudo?');
     act(() => button('Ocultar chat').click());
     await openChat();
@@ -84,7 +84,28 @@ describe('chat lateral con Ollama', () => {
     expect(vi.mocked(sendChat).mock.calls[1][2]).toHaveLength(3);
     act(() => button('Nueva conversación').click());
     expect(container.querySelector('[role="log"]')).toBeNull();
-    expect(container.textContent).toContain('Sin acceso a tus páginas');
+    expect(container.textContent).toContain('Solo se comparte esta página');
+  });
+
+  it('muestra propuestas y requiere confirmación antes de aplicarlas', async () => {
+    const apply = vi.fn(() => true);
+    vi.mocked(sendChat).mockResolvedValueOnce({
+      message: { role: 'assistant', content: 'He preparado una propuesta.' },
+      proposal: { action: 'append', content: 'Nueva sección\\nCon detalles.', reason: 'Añade el contenido solicitado.' },
+    });
+    function ProposalHarness() {
+      const [open, setOpen] = useState(false);
+      return <><button onClick={() => setOpen(true)}>Abrir</button><ChatPanel open={open} userId="ana" page={{ id: 'page-1', title: 'Mi página', content: 'Contenido', sourceContent: '<p>Contenido</p>' }} onApplyProposal={apply} onClose={() => setOpen(false)} /></>;
+    }
+    act(() => root.render(<ProposalHarness />));
+    await act(async () => container.querySelector('button')!.click());
+    suggest();
+    await submit();
+    expect(container.textContent).toContain('Nueva sección');
+    expect(apply).not.toHaveBeenCalled();
+    await act(async () => [...container.querySelectorAll('button')].find(item => item.textContent === 'Aplicar propuesta')!.click());
+    expect(apply).toHaveBeenCalledWith({ action: 'append', content: 'Nueva sección\\nCon detalles.', reason: 'Añade el contenido solicitado.' }, { id: 'page-1', title: 'Mi página', content: 'Contenido', sourceContent: '<p>Contenido</p>' });
+    expect(container.textContent).toContain('Propuesta aplicada y guardada.');
   });
 
   it('muestra errores y restaura el mensaje para reintentarlo sin duplicarlo', async () => {
