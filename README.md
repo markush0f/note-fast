@@ -55,12 +55,50 @@ The web app requires the backend for authentication and storage. See [server/REA
 ```sh
 bun run typecheck
 bun run test
+bun run test:frontend # frontend only
 bun run build
 ```
 
+### Frontend structure
+
+The frontend is organized by feature rather than flat `components/` and `lib/` folders:
+
+```text
+src/
+  app/                 # App composition, global styles, PWA service worker
+  features/
+    assistant/         # Chat UI and assistant API
+    auth/              # Sign-in / sign-up UI
+    editor/            # Editor, blocks, extensions, formatting, links, toolbar
+    settings/          # Preferences and backup import UI
+    workspace/         # Notes/notebooks model, explorer, icons, trash, export
+  infrastructure/      # Cloud API, persistence, attachments, offline sync
+  shared/              # Reusable UI primitives, theme, generic utilities
+  main.tsx             # Browser entry point
+```
+
+Frontend tests live separately in `tests/frontend/`, mirroring the source folders
+and importing the actual modules from `src/`. Keep new tests there, not alongside
+production files. Backend tests remain in `server/tests/`.
+
+Keep feature-specific components and logic within their feature. Use `shared/`
+only for domain-independent code, and `infrastructure/` for external services and
+persistence. `app/` composes these modules; import modules directly rather than
+adding catch-all barrel files.
+
 ### Desktop
 
-Requires Bun, Rust, and the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/).
+The desktop app stores its notebook locally in SQLite. It does not sign in or sync with web accounts. Images and PDF attachments stay in the app's local web storage.
+
+Published downloads are linked from the web sign-in screen and Settings. They come from the latest GitHub Release:
+
+- Linux: `.deb` and AppImage
+- Windows: NSIS installer
+- macOS: Apple Silicon and Intel `.dmg` files
+
+macOS and Windows may warn because the installers are not code-signed. Bump `version` in `src-tauri/tauri.conf.json`, then push a matching tag such as `v0.1.0`. The [desktop release workflow](.github/workflows/desktop-release.yml) builds and publishes the installers. A manual workflow run only builds artifacts and does not publish them.
+
+For a local build, install Bun, Rust, and the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/), then run:
 
 ```sh
 bun run desktop:dev

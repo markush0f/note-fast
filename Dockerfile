@@ -18,6 +18,7 @@ FROM dependencies AS frontend-build
 COPY index.html vite.config.ts tsconfig*.json ./
 COPY public ./public
 COPY src ./src
+COPY tests/frontend ./tests/frontend
 RUN bun --bun run build
 
 FROM nginx:1.28-alpine AS frontend

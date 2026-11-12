@@ -80,6 +80,7 @@ services:
       VITE_DOCKER: "true"
     volumes:
       - ./src:/app/src:ro
+      - ./tests/frontend:/app/tests/frontend:ro
       - ./public:/app/public:ro
       - ./index.html:/app/index.html:ro
       - ./vite.config.ts:/app/vite.config.ts:ro

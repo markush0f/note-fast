@@ -11,7 +11,7 @@ export default defineConfig({
     generateBundle(_options, bundle) {
       const assets = Object.keys(bundle).filter(file => !file.endsWith('.map')).map(file => `/${file}`);
       const shell = [...new Set(['/index.html', '/theme-init.js', '/favicon.svg', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', ...assets])];
-      const source = readFileSync(new URL('./src/service-worker.js', import.meta.url), 'utf8')
+      const source = readFileSync(new URL('./src/app/pwa/service-worker.js', import.meta.url), 'utf8')
         .replace('__CACHE_NAME__', `ntbk-shell-${crypto.randomUUID()}`)
         .replace('__PRECACHE__', JSON.stringify(shell));
       this.emitFile({ type: 'asset', fileName: 'sw.js', source });
