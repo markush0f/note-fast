@@ -81,7 +81,11 @@ Usa el mismo nombre de host en frontend y backend: no mezclar `localhost` con `1
 | GET | `/api/auth/get-session` | Consulta de sesión de Better Auth. |
 | GET | `/api/me` | Perfil de la cuenta autenticada; 401 si no hay sesión. |
 | GET | `/api/workspace` | Lee el cuaderno de la sesión; 401 si no hay sesión. |
-| PUT | `/api/workspace` | Guarda el cuaderno completo de la sesión; máximo 5 MiB. |
+| PUT | `/api/workspace` | Cliente antiguo: máximo 5 MiB; rechaza escrituras tras activar sincronización con revisiones. |
+| GET / PUT | `/api/sync` | Cuaderno con revisión; PUT requiere `If-Match`, devuelve 409 si cambió. |
+| GET / PUT | `/api/files/:id` | Adjuntos privados, máximo 10 MiB por archivo y 100 MiB por cuenta. |
+
+Las rutas de sincronización y archivos requieren `X-Notebook-User` coincidente con la sesión validada. Consulta [modo sin conexión y adjuntos](../docs/offline.md) para despliegue, límites y conservación de archivos.
 
 Better Auth gestiona sus rutas bajo `/api/auth/*`, el hash de contraseñas y las cookies de sesión HttpOnly. Contraseñas entre 12 y 128 caracteres; sesiones de siete días. `/api/me` no admite elegir usuario mediante parámetros.
 
@@ -108,7 +112,7 @@ curl -b cookies.txt http://127.0.0.1:3000/api/me
 
 ## Migraciones
 
-`bun run server:migrate` aplica el esquema requerido por la versión instalada de Better Auth, incluida la tabla de límites de peticiones, mediante su migrador oficial. Al ejecutar Bun directamente no se aplica automáticamente al arrancar; Compose sí lo hace mediante el servicio `migrate`, antes del backend. El lockfile fija las versiones; revisar las actualizaciones y realizar copia de seguridad antes de migrar. Ejecutar un único migrador antes de desplegar las réplicas. La migración crea también `user_workspace`, con un cuaderno JSONB por cuenta y borrado en cascada al eliminarla.
+`bun run server:migrate` aplica el esquema requerido por la versión instalada de Better Auth, incluida la tabla de límites de peticiones, mediante su migrador oficial. Al ejecutar Bun directamente no se aplica automáticamente al arrancar; Compose sí lo hace mediante el servicio `migrate`, antes del backend. El lockfile fija las versiones; revisar las actualizaciones y realizar copia de seguridad antes de migrar. Ejecutar un único migrador antes de desplegar las réplicas. La migración crea también `user_workspace`, con un cuaderno JSONB y revisión por cuenta, y `user_file` para adjuntos privados. Ambas tablas se borran en cascada al eliminar la cuenta. Despliega las migraciones y el backend antes que el frontend nuevo.
 
 ## Pruebas
 

@@ -7,6 +7,8 @@ A note-taking app with rich-text editing, nested folders, and cloud sync for web
 - Rich-text notes with formatting, task lists, code blocks, and links between notes.
 - Nested folders, drag-and-drop organization, favorites, and full-text search.
 - Embedded charts and spreadsheets with formulas and multiple sheets.
+- Inline images and downloadable PDF attachments (10 MiB per file, 100 MiB per account).
+- Installable web app with offline editing and automatic sync; conflicting note edits keep both versions.
 - Autosave, a 30-day trash, and light/dark themes.
 - JSON backup and restore, plus per-note HTML and PDF export (via the browser print dialog).
 
@@ -26,6 +28,16 @@ docker compose down
 ```
 
 **Do not use `docker compose down -v` unless you want to delete stored accounts and data.**
+
+### Installable / offline web app
+
+Use the built frontend instead of hot reload (Docker Compose 2.24.4+):
+
+```sh
+docker compose -f compose.yaml -f compose.pwa.yaml up --build -d
+```
+
+Open the same URL online first and wait for **Sincronizado**. Install from your browser menu if desired. Reopening offline requires the application download to finish (see Settings); remote hosting requires HTTPS. See [offline and attachment details](docs/offline.md).
 
 ## Development
 
@@ -59,6 +71,6 @@ Build on the target platform. Bundles are generated in `src-tauri/target/release
 
 React 19, TypeScript, Vite, Tailwind CSS 4, Tiptap, Recharts, and Univer Sheets. The backend uses Bun, Hono, Better Auth, and PostgreSQL; the desktop app uses Tauri 2 and SQLite.
 
-Web notebooks are stored per account in PostgreSQL. An existing local IndexedDB notebook is imported when an account first opens without a notebook, keeping the local copy as a backup. Desktop notebooks remain separate and do not sync with web accounts.
+Web notebooks and attachments are stored per account in PostgreSQL, with an account-scoped IndexedDB copy for offline use. An existing local IndexedDB notebook is imported when an account first opens without a notebook, keeping the local copy as a backup. Desktop notebooks remain separate and do not sync with web accounts.
 
-Spreadsheets do not support XLSX/CSV import or export, collaboration, or chart-linked data. JSON backups preserve editable charts and sheets; HTML exports are static.
+Spreadsheets do not support XLSX/CSV import or export, collaboration, or chart-linked data. JSON backups include attachments and editable charts and sheets; HTML exports are static.
