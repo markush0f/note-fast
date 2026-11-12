@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { fileRoutes } from './files'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
 import { bodyLimit } from 'hono/body-limit'
@@ -22,7 +23,7 @@ function isWorkspace(value: unknown): value is { version: 2 | 3; notes: unknown[
 interface Dependencies {
   auth: Pick<Auth, 'handler' | 'api'>
   checkDatabase: () => Promise<void>
-  database: Pick<Pool, 'query'>
+  database: Pick<Pool, 'query' | 'connect'>
   config: Pick<Config, 'origins' | 'authUrl'>
 }
 
@@ -37,11 +38,15 @@ export function createApp({ auth, checkDatabase, config, database }: Dependencie
     origin: (origin) => config.origins.includes(origin) ? origin : undefined,
     credentials: true,
     allowMethods: ['GET', 'POST', 'PUT', 'OPTIONS'],
-    allowHeaders: ['Content-Type'],
+    allowHeaders: ['Content-Type', 'If-Match', 'X-Notebook-User'],
     maxAge: 600,
   }))
   app.use('/api/auth/*', bodyLimit({
     maxSize: 64 * 1024,
+    onError: (c) => c.json({ error: 'request_too_large' }, 413),
+  }))
+  app.use('/api/sync', bodyLimit({
+    maxSize: 5 * 1024 * 1024,
     onError: (c) => c.json({ error: 'request_too_large' }, 413),
   }))
   app.use('/api/workspace', bodyLimit({
@@ -81,6 +86,16 @@ export function createApp({ auth, checkDatabase, config, database }: Dependencie
     return session?.user
   }
 
+  app.use('/api/*', async (c, next) => {
+    if (c.req.path === '/api/sync' || c.req.path.startsWith('/api/files/')) {
+      const user = await authenticatedUser(c.req.raw)
+      if (!user) return c.json({ error: 'unauthorized' }, 401)
+      if (c.req.header('X-Notebook-User') !== user.id) return c.json({ error: 'account_changed' }, 409)
+    }
+    await next()
+  })
+  fileRoutes(app, database, authenticatedUser)
+
   app.get('/api/workspace', async (c) => {
     const user = await authenticatedUser(c.req.raw)
     if (!user) return c.json({ error: 'unauthorized' }, 401)
@@ -100,12 +115,38 @@ export function createApp({ auth, checkDatabase, config, database }: Dependencie
     const result = await database.query(
       `INSERT INTO user_workspace (user_id, payload, updated_at) VALUES ($1, $2::jsonb, NOW())
        ON CONFLICT (user_id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()
-       WHERE (user_workspace.payload->>'version')::int <= (EXCLUDED.payload->>'version')::int
+       WHERE (user_workspace.payload->>'version')::int <= (EXCLUDED.payload->>'version')::int AND user_workspace.revision = 0
        RETURNING user_id`,
       [user.id, JSON.stringify(workspace)],
     )
     if (!result.rows.length) return c.json({ error: 'workspace_upgrade_required' }, 409)
     return c.json({ ok: true })
+  })
+
+  // Revision-checked endpoint for offline clients. Legacy writes cannot overwrite it.
+  app.get('/api/sync', async c => {
+    const user = await authenticatedUser(c.req.raw)
+    if (!user) return c.json({ error: 'unauthorized' }, 401)
+    const result = await database.query('SELECT payload, revision FROM user_workspace WHERE user_id = $1', [user.id])
+    return c.json({ workspace: result.rows[0]?.payload ?? null, revision: result.rows[0]?.revision ?? 0 })
+  })
+  app.put('/api/sync', async c => {
+    const user = await authenticatedUser(c.req.raw)
+    if (!user) return c.json({ error: 'unauthorized' }, 401)
+    const expected = c.req.header('If-Match') ?? ''
+    if (!/^\d{1,9}$/.test(expected)) return c.json({ error: 'revision_required' }, 428)
+    let workspace: unknown
+    try { workspace = await c.req.json() } catch { return c.json({ error: 'invalid_workspace' }, 400) }
+    if (!isWorkspace(workspace)) return c.json({ error: 'invalid_workspace' }, 400)
+    const result = await database.query(
+      `INSERT INTO user_workspace (user_id, payload, revision, updated_at)
+       SELECT $1, $2::jsonb, 1, NOW() WHERE $3::int = 0 OR EXISTS (SELECT 1 FROM user_workspace WHERE user_id = $1)
+       ON CONFLICT (user_id) DO UPDATE SET payload = EXCLUDED.payload, revision = user_workspace.revision + 1, updated_at = NOW()
+       WHERE user_workspace.revision = $3::int AND (user_workspace.payload->>'version')::int <= (EXCLUDED.payload->>'version')::int
+       RETURNING revision`, [user.id, JSON.stringify(workspace), Number(expected)],
+    )
+    if (!result.rows.length) return c.json({ error: 'sync_conflict' }, 409)
+    return c.json({ revision: result.rows[0].revision })
   })
 
   app.get('/api/me', async (c) => {
