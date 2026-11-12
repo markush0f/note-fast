@@ -1,16 +1,16 @@
 # ntbk
 
-A digital notebook with rich-text pages, nested folders, and cloud sync for web accounts. The interface is currently in Spanish. The Tauri desktop app stores its notebook locally and does not yet support accounts or sync.
+A digital notebook with rich-text pages organized into independent notebooks, and cloud sync for web accounts. The interface is currently in Spanish. The Tauri desktop app stores its notebook locally and does not yet support accounts or sync.
 
 ## Features
 
 - Rich-text pages with formatting, task lists, code blocks, and links between pages.
-- Nested folders, drag-and-drop organization, favorites, and full-text search.
+- Multiple notebooks with pages, drag-and-drop page organization, favorites, and full-text search.
 - Embedded charts and spreadsheets with formulas and multiple sheets.
 - Inline images and downloadable PDF attachments (10 MiB per file, 100 MiB per account).
 - Installable web app with offline editing and automatic sync; conflicting page edits keep both versions.
 - Autosave, a 30-day trash, and light/dark themes.
-- A customizable notebook cover with a title, description, icon, favorites, recently edited pages, and folder shortcuts.
+- A customizable cover for each notebook with a title, description, icon, favorites, and its pages.
 - Notebook backup and restore, plus per-page HTML and PDF export (via the browser print dialog).
 
 ## Quick start

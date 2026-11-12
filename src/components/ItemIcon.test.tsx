@@ -15,12 +15,12 @@ describe("Iconoir catalogue rendering", () => {
       expect(markup).toContain('aria-hidden="true"');
     }
   });
-  it("keeps the default note and folder icons", () => {
+  it("keeps the default note and notebook icons", () => {
     expect(renderToStaticMarkup(<ItemIcon kind="note" />)).toContain(
       'data-item-icon="page"',
     );
-    expect(renderToStaticMarkup(<ItemIcon kind="folder" />)).toContain(
-      'data-item-icon="folder"',
+    expect(renderToStaticMarkup(<ItemIcon kind="notebook" />)).toContain(
+      'data-item-icon="book"',
     );
   });
 });

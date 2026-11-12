@@ -27,7 +27,7 @@ describe('datos de bloques', () => {
   });
   it('comprueba el tamaño UTF-8 del cuaderno completo sin mutarlo', () => {
     const note = createNote();
-    const workspace = { version: 3 as const, notes: [note], folders: [] };
+    const workspace = { version: 4 as const, notes: [note], notebooks: [] };
     expect(checkBlockContentSize(workspace, note.id, '<p>Pequeño</p>')).toBeNull();
     expect(checkBlockContentSize(workspace, note.id, 'á'.repeat(WORKSPACE_LIMIT / 2))).toContain('5 MiB');
     expect(note.content).toBe('');
@@ -103,13 +103,13 @@ describe('documentos con bloques', () => {
     expect(slice.content.firstChild!.attrs.id).not.toBe('source');
     expect(slice.content.firstChild!.attrs.payload).toBe(editor.state.doc.firstChild!.attrs.payload);
   });
-  it('migra v2 y legacy a v3, y exporta/importa sin perder libros', () => {
+  it('migra v2 y legacy a v4, y exporta/importa sin perder libros', () => {
     const note = { ...createNote(), content: blockHTML('spreadsheet', newSpreadsheet()) + blockHTML('chart', newChart()) };
     const workspace = migrateWorkspace({ version: 2, notes: [note], folders: [], theme: 'dark' })!;
-    expect(workspace.version).toBe(3);
+    expect(workspace.version).toBe(4);
     expect(workspace.notes[0]).toEqual(note);
     expect(parseBackup(serializeWorkspace(workspace))).toEqual(workspace);
-    expect(migrateWorkspace([note])!.version).toBe(3);
+    expect(migrateWorkspace([note])!.version).toBe(4);
     expect(() => migrateWorkspace({ version: 99, notes: [], folders: [] })).toThrow();
   });
   it('indexa solo texto visible, no snapshots internos', () => {

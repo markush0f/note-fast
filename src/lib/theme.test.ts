@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { applyTheme, getInitialTheme, isTheme, THEME_CACHE_KEY } from "./theme";
 import { createNote } from "./notes";
-import { migrateWorkspace } from "./workspace";
+import { DEFAULT_NOTEBOOK_ID, DEFAULT_NOTEBOOK_NAME, migrateWorkspace } from "./workspace";
 import { JSDOM } from 'jsdom';
 const storageWindow = new JSDOM('', { url: 'http://localhost' }).window;
 
@@ -46,9 +46,9 @@ describe("appearance preference", () => {
   });
   it("loads saved appearance without changing existing notes or toolbar preferences", () => {
     const workspace = {
-      version: 3 as const,
+      version: 4 as const,
       notes: [createNote()],
-      folders: [],
+      notebooks: [{ id: DEFAULT_NOTEBOOK_ID, name: DEFAULT_NOTEBOOK_NAME, description: '' }],
       toolbarPosition: "bottom-left" as const,
     };
     expect(migrateWorkspace(workspace)).toEqual(workspace);

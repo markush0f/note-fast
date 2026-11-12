@@ -15,8 +15,7 @@ import {
   Download,
   MoreHoriz,
   Refresh,
-  FolderPlus,
-  Folder as FolderIcon,
+  Book,
   Palette,
   Plus,
   Search,
@@ -36,18 +35,19 @@ import { setAttachmentAccount } from './lib/attachments';
 import AuthScreen from "./components/AuthScreen";
 import { isTauri } from "@tauri-apps/api/core";
 import {
-  createFolder,
+  createNotebook,
+  DEFAULT_NOTEBOOK_ID,
+  DEFAULT_NOTEBOOK_NAME,
   deleteForever,
   emptyTrash,
-  folderPath,
   moveNote,
   purgeTrash,
-  restoreFolder,
+  restoreNotebook,
   restoreNote,
   setItemIcon,
-  trashFolder,
+  trashNotebook,
   trashNote,
-  type Folder,
+  type Notebook,
   type Workspace,
 } from "./lib/workspace";
 import FileExplorer from "./components/FileExplorer";
@@ -67,36 +67,32 @@ const NotebookCover = lazy(() => import('./components/NotebookCover'));
 export default function App() {
   const notebookRef = useRef<OfflineNotebook | null>(null);
   const [workspace, setWorkspaceState] = useState<Workspace>({
-    version: 3,
+    version: 4,
     notes: [],
-    folders: [],
+    notebooks: [],
   });
   const setWorkspace = (action: Workspace | ((previous: Workspace) => Workspace)) => {
     if (notebookRef.current) notebookRef.current.update(action);
     else setWorkspaceState(action);
   };
   const notes = workspace.notes.filter((note) => !note.deletedAt);
-  const folders = workspace.folders.filter((folder) => !folder.deletedAt);
+  const notebooks = workspace.notebooks.filter((notebook) => !notebook.deletedAt);
   const trashedNotes = workspace.notes.filter((note) => note.deletedAt);
-  const trashedFolders = workspace.folders.filter((folder) => folder.deletedAt);
+  const trashedNotebooks = workspace.notebooks.filter((notebook) => notebook.deletedAt);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
   const [initialTheme] = useState(getInitialTheme);
   const theme = workspace.theme ?? initialTheme;
-  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [activeNotebookId, setActiveNotebookId] = useState<string | null>(null);
   const [explorerSelection, setExplorerSelection] = useState<ItemTarget | null>(
     null,
   );
-  const [folderDialog, setFolderDialog] = useState<{
-    id?: string;
-    parentId: string | null;
-    name: string;
-  } | null>(null);
-  const [folderError, setFolderError] = useState("");
+  const [notebookDialog, setNotebookDialog] = useState<{ id?: string; name: string } | null>(null);
+  const [notebookError, setNotebookError] = useState('');
   const [iconTarget, setIconTarget] = useState<ItemTarget | null>(null);
-  const [deleteFolderId, setDeleteFolderId] = useState<string | null>(null);
+  const [deleteNotebookId, setDeleteNotebookId] = useState<string | null>(null);
   const [moveId, setMoveId] = useState<string | null>(null);
-  const [moveFolderId, setMoveFolderId] = useState<string | null>(null);
+  const [moveNotebookId, setMoveNotebookId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [authState, setAuthState] = useState<"checking" | "signed-out" | "signed-in">("checking");
@@ -117,47 +113,22 @@ export default function App() {
   const iconItem =
     iconTarget?.kind === "note"
       ? notes.find((note) => note.id === iconTarget.id)
-      : folders.find((folder) => folder.id === iconTarget?.id);
+      : notebooks.find((book) => book.id === iconTarget?.id);
 
-  const openFolderDialog = (parentId: string | null, folder?: Folder) => {
-    setFolderError("");
-    setFolderDialog({ id: folder?.id, parentId, name: folder?.name ?? "" });
+  const openNotebookDialog = (notebook?: Notebook) => {
+    setNotebookError('');
+    setNotebookDialog({ id: notebook?.id, name: notebook?.name ?? '' });
   };
-
-  const saveFolder = () => {
-    if (!folderDialog) return;
-    const name = folderDialog.name.trim();
-    if (!name) {
-      setFolderError("Escribe un nombre.");
-      return;
-    }
-    if (
-      folders.some(
-        (folder) =>
-          folder.parentId === folderDialog.parentId &&
-          folder.id !== folderDialog.id &&
-          folder.name.toLocaleLowerCase("es") === name.toLocaleLowerCase("es"),
-      )
-    ) {
-      setFolderError("Ya existe una carpeta con ese nombre aquí.");
-      return;
-    }
-    const folder = folderDialog.id
-      ? { ...folders.find((item) => item.id === folderDialog.id)!, name }
-      : createFolder(name, folderDialog.parentId);
-    setWorkspace((previous) => ({
-      ...previous,
-      folders: folderDialog.id
-        ? previous.folders.map((item) =>
-            item.id === folder.id ? folder : item,
-          )
-        : [...previous.folders, folder],
-    }));
-    setActiveFolderId(folder.id);
-    setExplorerSelection({ kind: "folder", id: folder.id });
-    setFavorites(false);
-    setQuery("");
-    setFolderDialog(null);
+  const saveNotebook = () => {
+    if (!notebookDialog) return;
+    const name = notebookDialog.name.trim();
+    if (!name) { setNotebookError('Escribe un nombre.'); return; }
+    if (notebooks.some(book => book.id !== notebookDialog.id && book.name.toLocaleLowerCase('es') === name.toLocaleLowerCase('es'))) { setNotebookError('Ya existe un cuaderno con ese nombre.'); return; }
+    const book = notebookDialog.id ? { ...notebooks.find(item => item.id === notebookDialog.id)!, name } : createNotebook(name);
+    setWorkspace(previous => ({ ...previous, notebooks: notebookDialog.id ? previous.notebooks.map(item => item.id === book.id ? book : item) : [...previous.notebooks, book] }));
+    setActiveNotebookId(book.id);
+    setExplorerSelection({ kind: 'notebook', id: book.id });
+    setFavorites(false); setQuery(''); setSelectedId(null); setNotebookDialog(null);
   };
 
   useEffect(() => {
@@ -194,7 +165,7 @@ export default function App() {
         notebook = await OfflineNotebook.open(user, async () => {
           const local = !(await hasImportedWorkspaceToCloud()) ? await loadWorkspace() : undefined;
           await markWorkspaceImportedToCloud();
-          return local ?? { version: 3, notes: [createNote()], folders: [] };
+          return local ?? { version: 4, notes: [createNote(DEFAULT_NOTEBOOK_ID)], notebooks: [{ id: DEFAULT_NOTEBOOK_ID, name: DEFAULT_NOTEBOOK_NAME, description: '' }] };
         }, value => { if (!cancelled) setWorkspaceState(value); }, (status, message) => {
           if (!cancelled) { setSaveStatus(status); setSyncMessage(message ?? ''); }
         });
@@ -205,7 +176,7 @@ export default function App() {
         setWorkspaceState(initial);
         setSelectedId(null);
         setExplorerSelection(null);
-        setActiveFolderId(null);
+        setActiveNotebookId(initial.notebooks.find(book => !book.deletedAt)?.id ?? null);
         setLoaded(true);
         notebook.update(initial);
       })().catch((error: unknown) => {
@@ -234,21 +205,21 @@ export default function App() {
   }, [loaded, theme]);
 
   const addNote = useCallback(
-    (folderId: string | null = activeFolderId) => {
+    (notebookId: string = activeNotebookId ?? notebooks[0]?.id ?? DEFAULT_NOTEBOOK_ID) => {
       if (!loaded) return;
-      const note = createNote(folderId);
+      const note = createNote(notebookId);
       setWorkspace((previous) => ({
         ...previous,
         notes: [note, ...previous.notes],
       }));
-      setActiveFolderId(folderId);
+      setActiveNotebookId(notebookId);
       setSelectedId(note.id);
       setExplorerSelection({ kind: "note", id: note.id });
       setFavorites(false);
       setQuery("");
       setMobileEditor(true);
     },
-    [loaded, activeFolderId],
+    [loaded, activeNotebookId, notebooks],
   );
 
   useEffect(() => {
@@ -301,36 +272,24 @@ export default function App() {
     }));
   };
 
-  const relocateNote = (noteId: string, folderId: string | null) => {
-    setWorkspace((previous) => moveNote(previous, noteId, folderId));
-    if (noteId === selectedId) setActiveFolderId(folderId);
+  const relocateNote = (noteId: string, notebookId: string) => {
+    setWorkspace(previous => moveNote(previous, noteId, notebookId));
+    if (noteId === selectedId) setActiveNotebookId(notebookId);
   };
 
   const removeItem = () => {
-    const next = deleteFolderId
-      ? trashFolder(workspace, deleteFolderId)
-      : trashNote(workspace, deleteId ?? "");
-    const visible = next.notes.filter((note) => !note.deletedAt);
-    const visibleFolders = next.folders.filter((folder) => !folder.deletedAt);
+    const next = deleteNotebookId ? trashNotebook(workspace, deleteNotebookId) : trashNote(workspace, deleteId ?? '');
+    const visible = next.notes.filter(note => !note.deletedAt);
+    const visibleNotebooks = next.notebooks.filter(book => !book.deletedAt);
     setWorkspace(next);
-    if (!visible.some((note) => note.id === selectedId)) {
-      setSelectedId(visible[0]?.id ?? null);
-      setMobileEditor(false);
-    }
-    if (!visibleFolders.some((folder) => folder.id === activeFolderId))
-      setActiveFolderId(null);
-    if (
-      explorerSelection &&
-      !(explorerSelection.kind === "note" ? visible : visibleFolders).some(
-        (item) => item.id === explorerSelection.id,
-      )
-    ) {
-      setExplorerSelection(
-        visible[0] ? { kind: "note", id: visible[0].id } : null,
-      );
+    if (!visible.some(note => note.id === selectedId)) { setSelectedId(null); setMobileEditor(false); }
+    if (!visibleNotebooks.some(book => book.id === activeNotebookId)) setActiveNotebookId(visibleNotebooks[0]?.id ?? null);
+    if (explorerSelection && !(explorerSelection.kind === 'note' ? visible : visibleNotebooks).some(item => item.id === explorerSelection.id)) {
+      setExplorerSelection(null);
+      setSelectedId(null);
     }
     setDeleteId(null);
-    setDeleteFolderId(null);
+    setDeleteNotebookId(null);
   };
 
   const exportNote = async () => {
@@ -411,21 +370,21 @@ export default function App() {
         aria-label="Cuaderno"
       >
         <header className="flex items-center justify-between px-5 pt-6 pb-4">
-          <h1 className="text-[15px] font-semibold">Cuaderno</h1>
+          <h1 className="text-[15px] font-semibold">Cuadernos</h1>
           <div className="flex items-center gap-1">
             <Button
               variant="icon"
-              title="Nueva carpeta"
-              aria-label="Nueva carpeta"
-              onClick={() => openFolderDialog(activeFolderId)}
+              title="Nuevo cuaderno"
+              aria-label="Nuevo cuaderno"
+              onClick={() => openNotebookDialog()}
             >
-              <FolderPlus size={18} />
+              <Book size={18} />
             </Button>
             <Button
               variant="icon"
               title="Nueva página (Ctrl+Alt+N)"
               aria-label="Nueva página"
-              onClick={() => addNote()}
+              onClick={() => addNote(activeNotebookId ?? undefined)}
             >
               <Plus size={19} />
             </Button>
@@ -474,39 +433,27 @@ export default function App() {
         </div>
         <FileExplorer
           notes={notes}
-          folders={folders}
+          notebooks={notebooks}
           selection={explorerSelection}
-          activeFolderId={activeFolderId}
+          activeNotebookId={activeNotebookId}
           query={query}
           favorites={favorites}
-          onSelect={(note) => {
-            setExplorerSelection({ kind: "note", id: note.id });
-            setSelectedId(note.id);
-            setActiveFolderId(note.folderId);
-            setMobileEditor(true);
-          }}
-          onSelectFolder={(id) => {
-            setSelectedId(null);
-            setActiveFolderId(id);
-            setExplorerSelection(id === null ? null : { kind: "folder", id });
-            setMobileEditor(true);
-          }}
+          onSelect={note => { setExplorerSelection({ kind: 'note', id: note.id }); setSelectedId(note.id); setActiveNotebookId(note.notebookId); setMobileEditor(true); }}
+          onSelectNotebook={id => { setSelectedId(null); setActiveNotebookId(id); setExplorerSelection({ kind: 'notebook', id }); setMobileEditor(true); }}
           onMoveNote={relocateNote}
           onNewNote={addNote}
-          onNewFolder={openFolderDialog}
-          onRenameFolder={(folder) => openFolderDialog(folder.parentId, folder)}
-          onChangeFolderIcon={(folder) =>
-            setIconTarget({ kind: "folder", id: folder.id })
-          }
-          onDeleteFolder={(folder) => setDeleteFolderId(folder.id)}
+          onNewNotebook={() => openNotebookDialog()}
+          onRenameNotebook={openNotebookDialog}
+          onChangeNotebookIcon={book => setIconTarget({ kind: 'notebook', id: book.id })}
+          onDeleteNotebook={book => setDeleteNotebookId(book.id)}
         />
         <div className="shrink-0 border-t border-line p-2.5">
           <Button variant="menu" onClick={() => setTrashOpen(true)}>
             <Trash size={16} />
             Papelera
-            {trashedNotes.length + trashedFolders.length > 0 && (
+            {trashedNotes.length + trashedNotebooks.length > 0 && (
               <span className="text-[11px] text-muted">
-                {trashedNotes.length + trashedFolders.length}
+                {trashedNotes.length + trashedNotebooks.length}
               </span>
             )}
           </Button>
@@ -624,10 +571,10 @@ export default function App() {
                   onClick={() => {
                     closeActions();
                     setMoveId(selected.id);
-                    setMoveFolderId(selected.folderId);
+                    setMoveNotebookId(selected.notebookId);
                   }}
                 >
-                  <FolderIcon size={15} />
+                  <Book size={15} />
                   Mover a…
                 </Button>
                 <Button
@@ -703,7 +650,7 @@ export default function App() {
                 const target = notes.find((item) => item.id === id);
                 if (!target) return;
                 setSelectedId(target.id);
-                setActiveFolderId(target.folderId);
+                setActiveNotebookId(target.notebookId);
                 setExplorerSelection({ kind: "note", id: target.id });
                 setFavorites(false);
                 setQuery("");
@@ -711,29 +658,20 @@ export default function App() {
               }}
             />
           </Suspense></EditorErrorBoundary>
-        ) : explorerSelection === null ? (
-          <Suspense fallback={<p className="grid flex-1 place-content-center text-sm text-muted">Abriendo portada…</p>}>
+        ) : activeNotebookId && notebooks.some(book => book.id === activeNotebookId) ? (
+          <Suspense fallback={<p className="grid flex-1 place-content-center text-sm text-muted">Abriendo cuaderno…</p>}>
             <NotebookCover
-              workspace={workspace}
-              notes={notes}
-              folders={folders}
-              onChange={changes => setWorkspace(previous => ({ ...previous, ...changes }))}
-              onOpenNote={note => {
-                setSelectedId(note.id); setActiveFolderId(note.folderId);
-                setExplorerSelection({ kind: 'note', id: note.id }); setMobileEditor(true);
-              }}
-              onOpenFolder={folder => {
-                setActiveFolderId(folder.id); setExplorerSelection({ kind: 'folder', id: folder.id });
-              }}
-              onNewNote={() => addNote(null)}
+              notebook={notebooks.find(book => book.id === activeNotebookId)!}
+              notes={notes.filter(note => note.notebookId === activeNotebookId)}
+              onChange={changes => setWorkspace(previous => ({ ...previous, notebooks: previous.notebooks.map(book => book.id === activeNotebookId ? { ...book, ...changes } : book) }))}
+              onOpenNote={note => { setSelectedId(note.id); setActiveNotebookId(note.notebookId); setExplorerSelection({ kind: 'note', id: note.id }); setMobileEditor(true); }}
+              onNewNote={() => addNote(activeNotebookId)}
             />
           </Suspense>
         ) : (
           <div className="grid flex-1 place-content-center gap-3 p-6 text-center">
-            <p className="text-sm text-muted">Carpeta seleccionada</p>
-            <Button variant="primary" onClick={() => addNote(activeFolderId)}>
-              <Plus size={16} /> Nueva página
-            </Button>
+            <p className="text-sm text-muted">Crea un cuaderno para organizar tus páginas.</p>
+            <Button variant="primary" onClick={() => openNotebookDialog()}><Book size={16} /> Nuevo cuaderno</Button>
           </div>
         )}
       </main>
@@ -741,7 +679,7 @@ export default function App() {
       {trashOpen && (
         <TrashDialog
           notes={trashedNotes}
-          folders={trashedFolders}
+          notebooks={trashedNotebooks}
           onClose={() => setTrashOpen(false)}
           onRestoreNote={(id) => {
             const next = restoreNote(workspace, id);
@@ -749,24 +687,22 @@ export default function App() {
             setWorkspace(next);
             if (note) {
               setSelectedId(note.id);
-              setActiveFolderId(note.folderId);
+              setActiveNotebookId(note.notebookId);
               setExplorerSelection({ kind: "note", id: note.id });
               setMobileEditor(true);
             }
             setTrashOpen(false);
           }}
-          onRestoreFolder={(id) => {
-            setWorkspace(restoreFolder(workspace, id));
-            setActiveFolderId(id);
-            setExplorerSelection({ kind: "folder", id });
+          onRestoreNotebook={id => {
+            setWorkspace(restoreNotebook(workspace, id));
+            setActiveNotebookId(id);
+            setExplorerSelection({ kind: 'notebook', id });
             setTrashOpen(false);
           }}
           onDeleteNote={(id) =>
             setWorkspace(deleteForever(workspace, { kind: "note", id }))
           }
-          onDeleteFolder={(id) =>
-            setWorkspace(deleteForever(workspace, { kind: "folder", id }))
-          }
+          onDeleteNotebook={id => setWorkspace(deleteForever(workspace, { kind: 'notebook', id }))}
           onEmpty={() => setWorkspace(emptyTrash(workspace))}
         />
       )}
@@ -782,7 +718,7 @@ export default function App() {
             setWorkspace(imported);
             setSelectedId(null);
             setExplorerSelection(null);
-            setActiveFolderId(null);
+            setActiveNotebookId(imported.notebooks.find(book => !book.deletedAt)?.id ?? null);
             setQuery("");
             setFavorites(false);
             setMobileEditor(false);
@@ -804,123 +740,29 @@ export default function App() {
         />
       )}
       {moveId && (
-        <Dialog title="Mover nota" onClose={() => setMoveId(null)}>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              relocateNote(moveId, moveFolderId);
-              setMoveId(null);
-            }}
-          >
-            <label
-              className="mt-4 mb-2 block text-xs text-muted"
-              htmlFor="move-folder"
-            >
-              Carpeta de destino
-            </label>
-            <select
-              id="move-folder"
-              className="w-full rounded border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-strong"
-              value={moveFolderId ?? ""}
-              onChange={(event) => setMoveFolderId(event.target.value || null)}
-            >
-              <option value="">Cuaderno (raíz)</option>
-              {folders
-                .map((folder) => ({
-                  id: folder.id,
-                  path: folderPath(folders, folder.id)
-                    .map((item) => item.name)
-                    .join(" / "),
-                }))
-                .sort((a, b) => a.path.localeCompare(b.path, "es"))
-                .map((folder) => (
-                  <option key={folder.id} value={folder.id}>
-                    {folder.path}
-                  </option>
-                ))}
+        <Dialog title="Mover página" onClose={() => setMoveId(null)}>
+          <form onSubmit={event => { event.preventDefault(); if (moveNotebookId) relocateNote(moveId, moveNotebookId); setMoveId(null); }}>
+            <label className="mt-4 mb-2 block text-xs text-muted" htmlFor="move-notebook">Cuaderno de destino</label>
+            <select id="move-notebook" className="w-full rounded border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-strong" value={moveNotebookId ?? ''} onChange={event => setMoveNotebookId(event.target.value)}>
+              {notebooks.map(book => <option key={book.id} value={book.id}>{book.name}</option>)}
             </select>
-            <div className="mt-6 flex justify-end gap-2">
-              <Button onClick={() => setMoveId(null)}>Cancelar</Button>
-              <Button variant="primary" type="submit">
-                Mover
-              </Button>
-            </div>
+            <div className="mt-6 flex justify-end gap-2"><Button onClick={() => setMoveId(null)}>Cancelar</Button><Button variant="primary" type="submit">Mover</Button></div>
           </form>
         </Dialog>
       )}
-      {folderDialog && (
-        <Dialog
-          title={folderDialog.id ? "Renombrar carpeta" : "Nueva carpeta"}
-          onClose={() => setFolderDialog(null)}
-        >
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              saveFolder();
-            }}
-          >
-            <label
-              className="mb-2 mt-4 block text-xs text-muted"
-              htmlFor="folder-name"
-            >
-              Nombre
-            </label>
-            <input
-              id="folder-name"
-              className="w-full rounded border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-strong aria-invalid:border-danger"
-              value={folderDialog.name}
-              maxLength={120}
-              aria-invalid={Boolean(folderError)}
-              aria-describedby={folderError ? "folder-error" : undefined}
-              onChange={(event) => {
-                setFolderError("");
-                setFolderDialog({ ...folderDialog, name: event.target.value });
-              }}
-            />
-            {folderError && (
-              <p
-                id="folder-error"
-                className="mt-2 text-xs text-danger"
-                role="alert"
-              >
-                {folderError}
-              </p>
-            )}
-            <div className="mt-6 flex justify-end gap-2">
-              <Button onClick={() => setFolderDialog(null)}>Cancelar</Button>
-              <Button variant="primary" type="submit">
-                {folderDialog.id ? "Guardar" : "Crear carpeta"}
-              </Button>
-            </div>
+      {notebookDialog && (
+        <Dialog title={notebookDialog.id ? 'Renombrar cuaderno' : 'Nuevo cuaderno'} onClose={() => setNotebookDialog(null)}>
+          <form onSubmit={event => { event.preventDefault(); saveNotebook(); }}>
+            <label className="mb-2 mt-4 block text-xs text-muted" htmlFor="notebook-name">Nombre</label>
+            <input id="notebook-name" className="w-full rounded border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-strong aria-invalid:border-danger" value={notebookDialog.name} maxLength={120} aria-invalid={Boolean(notebookError)} aria-describedby={notebookError ? 'notebook-error' : undefined} onChange={event => { setNotebookError(''); setNotebookDialog({ ...notebookDialog, name: event.target.value }); }} />
+            {notebookError && <p id="notebook-error" className="mt-2 text-xs text-danger" role="alert">{notebookError}</p>}
+            <div className="mt-6 flex justify-end gap-2"><Button onClick={() => setNotebookDialog(null)}>Cancelar</Button><Button variant="primary" type="submit">{notebookDialog.id ? 'Guardar' : 'Crear cuaderno'}</Button></div>
           </form>
         </Dialog>
       )}
-      {(deleteId || deleteFolderId) && (
-        <Dialog
-          title={deleteFolderId ? "¿Eliminar carpeta?" : "¿Eliminar nota?"}
-          description={
-            deleteFolderId
-              ? "La carpeta y su contenido irán a la papelera durante 30 días."
-              : "La nota irá a la papelera durante 30 días."
-          }
-          onClose={() => {
-            setDeleteId(null);
-            setDeleteFolderId(null);
-          }}
-        >
-          <div className="mt-6 flex justify-end gap-2">
-            <Button
-              onClick={() => {
-                setDeleteId(null);
-                setDeleteFolderId(null);
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button variant="danger" onClick={removeItem}>
-              {deleteFolderId ? "Eliminar carpeta" : "Eliminar nota"}
-            </Button>
-          </div>
+      {(deleteId || deleteNotebookId) && (
+        <Dialog title={deleteNotebookId ? '¿Eliminar cuaderno?' : '¿Eliminar página?'} description={deleteNotebookId ? 'El cuaderno y sus páginas irán a la papelera durante 30 días.' : 'La página irá a la papelera durante 30 días.'} onClose={() => { setDeleteId(null); setDeleteNotebookId(null); }}>
+          <div className="mt-6 flex justify-end gap-2"><Button onClick={() => { setDeleteId(null); setDeleteNotebookId(null); }}>Cancelar</Button><Button variant="danger" onClick={removeItem}>{deleteNotebookId ? 'Eliminar cuaderno' : 'Eliminar página'}</Button></div>
         </Dialog>
       )}
     </div>

@@ -639,7 +639,7 @@ export const ITEM_ICONS = [
 }[];
 
 export type ItemIconId = (typeof ITEM_ICONS)[number]["id"];
-export type ItemTarget = { kind: "note" | "folder"; id: string };
+export type ItemTarget = { kind: "note" | "notebook"; id: string };
 export const ITEM_ICON_IDS = ITEM_ICONS.map((icon) => icon.id);
 const iconIds = new Set<string>(ITEM_ICON_IDS);
 

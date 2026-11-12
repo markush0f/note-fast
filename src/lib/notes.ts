@@ -1,11 +1,12 @@
 import type { ItemIconId } from "./item-icons";
+import { DEFAULT_NOTEBOOK_ID } from './workspace';
 import { blockText, readBlock } from './note-blocks';
 
 export interface Note {
   id: string;
   title: string;
   content: string;
-  folderId: string | null;
+  notebookId: string;
   icon?: ItemIconId;
   favorite: boolean;
   createdAt: string;
@@ -13,13 +14,13 @@ export interface Note {
   deletedAt?: string;
 }
 
-export function createNote(folderId: string | null = null): Note {
+export function createNote(notebookId = DEFAULT_NOTEBOOK_ID): Note {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
     title: "",
     content: "",
-    folderId,
+    notebookId,
     favorite: false,
     createdAt: now,
     updatedAt: now,

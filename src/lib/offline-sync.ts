@@ -7,7 +7,7 @@ import { mergeWorkspaces, same } from './workspace-merge';
 export interface OfflineUser { id: string; name: string; email: string; }
 interface RecordState { workspace: Workspace; base: Workspace; revision: number; }
 export type SyncStatus = 'saving' | 'saved' | 'offline' | 'syncing' | 'error';
-const EMPTY: Workspace = { version: 3, notes: [], folders: [] };
+const EMPTY: Workspace = { version: 4, notes: [], notebooks: [] };
 export async function rememberUser(user: OfflineUser) { await dbPut('state', 'active-user', user); await dbDelete('state', 'pending-signout'); }
 export async function forgetUser(offline = false) { if (offline) await dbPut('state', 'pending-signout', true); await dbDelete('state', 'active-user'); }
 export async function hasPendingSignout() { return dbGet<boolean>('state', 'pending-signout'); }

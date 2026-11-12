@@ -7,17 +7,18 @@ import type { Auth } from './auth'
 import type { Config } from './config'
 import type { Pool } from 'pg'
 
-function isWorkspace(value: unknown): value is { version: 2 | 3; notes: unknown[]; folders: unknown[] } {
+function isWorkspace(value: unknown): value is { version: 2 | 3 | 4; notes: unknown[]; folders?: unknown[]; notebooks?: unknown[] } {
   if (!value || typeof value !== 'object') return false
   const workspace = value as Record<string, unknown>
-  if ((workspace.version !== 2 && workspace.version !== 3) || !Array.isArray(workspace.notes) || !Array.isArray(workspace.folders)) return false
-  if (workspace.notes.length > 20_000 || workspace.folders.length > 5_000) return false
+  if (![2, 3, 4].includes(Number(workspace.version)) || !Array.isArray(workspace.notes)) return false
+  if (workspace.version === 4 ? !Array.isArray(workspace.notebooks) : !Array.isArray(workspace.folders)) return false
+  if (workspace.notes.length > 20_000 || (workspace.folders?.length ?? workspace.notebooks?.length ?? 0) > 5_000) return false
   return workspace.notes.every((note) => note && typeof note === 'object'
     && typeof note.id === 'string' && typeof note.title === 'string' && typeof note.content === 'string'
     && typeof note.favorite === 'boolean' && typeof note.createdAt === 'string' && typeof note.updatedAt === 'string')
-    && workspace.folders.every((folder) => folder && typeof folder === 'object'
-      && typeof folder.id === 'string' && typeof folder.name === 'string'
-      && (folder.parentId === null || typeof folder.parentId === 'string'))
+    && (workspace.version === 4
+      ? workspace.notebooks!.every((book) => book && typeof book === 'object' && typeof book.id === 'string' && typeof book.name === 'string' && typeof book.description === 'string')
+      : workspace.folders!.every((folder) => folder && typeof folder === 'object' && typeof folder.id === 'string' && typeof folder.name === 'string' && (folder.parentId === null || typeof folder.parentId === 'string')))
 }
 
 interface Dependencies {

@@ -1,363 +1,78 @@
-import { useEffect, useState, type DragEvent, type ReactNode } from "react";
-import {
-  NavArrowDown,
-  NavArrowRight,
-  MoreHoriz,
-  Palette,
-  Folder as FolderIcon,
-  FolderPlus,
-  EditPencil,
-  Plus,
-  Star,
-  Trash,
-} from "./icons";
-import { Button, iconButtonClass, MenuItems } from "./ui";
-import { filterNotes, plainText, type Note } from "../lib/notes";
-import { folderPath, type Folder } from "../lib/workspace";
-import ItemIcon from "./ItemIcon";
-import type { ItemTarget } from "../lib/item-icons";
+import { useState, type DragEvent } from 'react';
+import { MoreHoriz, Palette, EditPencil, Plus, Star, Trash, Book } from './icons';
+import { Button, iconButtonClass, MenuItems } from './ui';
+import { filterNotes, plainText, type Note } from '../lib/notes';
+import type { Notebook } from '../lib/workspace';
+import ItemIcon from './ItemIcon';
+import type { ItemTarget } from '../lib/item-icons';
 
-const NOTE_DRAG_TYPE = "application/x-ntbk-note";
-
+const NOTE_DRAG_TYPE = 'application/x-ntbk-note';
 interface Props {
   notes: Note[];
-  folders: Folder[];
+  notebooks: Notebook[];
   selection: ItemTarget | null;
-  activeFolderId: string | null;
+  activeNotebookId: string | null;
   query: string;
   favorites: boolean;
   onSelect: (note: Note) => void;
-  onSelectFolder: (id: string | null) => void;
-  onNewNote: (parentId: string | null) => void;
-  onNewFolder: (parentId: string | null) => void;
-  onRenameFolder: (folder: Folder) => void;
-  onChangeFolderIcon: (folder: Folder) => void;
-  onDeleteFolder: (folder: Folder) => void;
-  onMoveNote: (noteId: string, folderId: string | null) => void;
+  onSelectNotebook: (id: string) => void;
+  onNewNote: (notebookId: string) => void;
+  onNewNotebook: () => void;
+  onRenameNotebook: (notebook: Notebook) => void;
+  onChangeNotebookIcon: (notebook: Notebook) => void;
+  onDeleteNotebook: (notebook: Notebook) => void;
+  onMoveNote: (noteId: string, notebookId: string) => void;
 }
-
 export default function FileExplorer(props: Props) {
-  const { notes, folders, selection, activeFolderId, query, favorites } = props;
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const { notes, notebooks, selection, activeNotebookId, query, favorites } = props;
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(activeNotebookId ? [activeNotebookId] : []));
   const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<string | null | undefined>();
-  const [announcement, setAnnouncement] = useState("");
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState('');
   const filtering = Boolean(query.trim() || favorites);
-
-  useEffect(() => {
-    setExpanded(
-      (previous) =>
-        new Set([
-          ...previous,
-          ...folderPath(folders, activeFolderId).map((folder) => folder.id),
-        ]),
-    );
-  }, [activeFolderId, folders]);
-
-  const resetDrag = () => {
-    setDraggedId(null);
-    setDropTarget(undefined);
-  };
-  const canDrop = (event: DragEvent<HTMLElement>, folderId: string | null) => {
-    const note = notes.find((item) => item.id === draggedId);
-    return Boolean(
-      note &&
-      note.folderId !== folderId &&
-      event.dataTransfer.types.includes(NOTE_DRAG_TYPE),
-    );
-  };
-  const dropHandlers = (folderId: string | null) => ({
+  const resetDrag = () => { setDraggedId(null); setDropTarget(null); };
+  const noteRows = (values: Note[], showNotebook = false) => values.map(note => <li key={note.id}>
+    <button draggable className={`mb-0.5 block w-full cursor-grab rounded px-2.5 py-1.5 text-left hover:bg-hover active:cursor-grabbing aria-[current=true]:bg-selection ${draggedId === note.id ? 'opacity-40' : ''}`} aria-label={`Abrir ${note.title || 'Sin título'}`} aria-current={selection?.kind === 'note' && selection.id === note.id ? 'true' : undefined} title={`${note.title || 'Sin título'}\n${plainText(note.content) || 'Página vacía'}`} onClick={() => props.onSelect(note)} onDragStart={event => { event.dataTransfer.setData(NOTE_DRAG_TYPE, note.id); event.dataTransfer.effectAllowed = 'move'; setDraggedId(note.id); setAnnouncement('Suelta la página sobre otro cuaderno para moverla.'); }} onDragEnd={resetDrag}>
+      <span className="flex items-center gap-2 text-xs leading-5"><ItemIcon icon={note.icon} kind="note" size={13} className="shrink-0 text-muted" /><span className="min-w-0 flex-1 truncate">{note.title || 'Sin título'}</span>{note.favorite && <Star size={11} className="shrink-0 text-muted" fill="currentColor" />}</span>
+      {showNotebook && <span className="block truncate pl-5 text-[10px] leading-4 text-muted">{notebooks.find(book => book.id === note.notebookId)?.name ?? 'Cuaderno'}</span>}
+    </button>
+  </li>);
+  const destinations = (notebookId: string) => ({
     onDragOver: (event: DragEvent<HTMLElement>) => {
-      if (!canDrop(event, folderId)) {
-        event.dataTransfer.dropEffect = "none";
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      event.dataTransfer.dropEffect = "move";
-      setDropTarget(folderId);
+      const note = notes.find(item => item.id === draggedId);
+      if (!note || note.notebookId === notebookId || !event.dataTransfer.types.includes(NOTE_DRAG_TYPE)) { event.dataTransfer.dropEffect = 'none'; return; }
+      event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move'; setDropTarget(notebookId);
     },
-    onDragLeave: (event: DragEvent<HTMLElement>) => {
-      if (
-        !(event.relatedTarget instanceof Node) ||
-        !event.currentTarget.contains(event.relatedTarget)
-      ) {
-        setDropTarget((previous) =>
-          previous === folderId ? undefined : previous,
-        );
-      }
-    },
+    onDragLeave: (event: DragEvent<HTMLElement>) => { if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setDropTarget(current => current === notebookId ? null : current); },
     onDrop: (event: DragEvent<HTMLElement>) => {
-      if (!canDrop(event, folderId)) return;
-      event.preventDefault();
-      event.stopPropagation();
+      const note = notes.find(item => item.id === draggedId);
+      if (!note || note.notebookId === notebookId || !event.dataTransfer.types.includes(NOTE_DRAG_TYPE)) return;
+      event.preventDefault(); event.stopPropagation();
       const id = event.dataTransfer.getData(NOTE_DRAG_TYPE);
-      if (id !== draggedId) {
-        resetDrag();
-        return;
-      }
-      props.onMoveNote(id, folderId);
-      setExpanded(
-        (previous) =>
-          new Set([
-            ...previous,
-            ...folderPath(folders, folderId).map((folder) => folder.id),
-          ]),
-      );
-      setAnnouncement(
-        `Nota movida a ${folders.find((folder) => folder.id === folderId)?.name ?? "Cuaderno (raíz)"}.`,
-      );
+      if (id === draggedId) { props.onMoveNote(id, notebookId); setAnnouncement(`Página movida a ${notebooks.find(book => book.id === notebookId)?.name}.`); }
       resetDrag();
     },
   });
-
-  const renderNote = (note: Note, showPath = false) => (
-    <li key={note.id}>
-      <button
-        draggable
-        className={`mb-0.5 block w-full cursor-grab rounded bg-transparent px-2.5 py-1.5 text-left hover:bg-hover active:cursor-grabbing aria-[current=true]:bg-selection focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-strong ${draggedId === note.id ? "opacity-40" : ""}`}
-        aria-label={`Abrir ${note.title || "Sin título"}`}
-        aria-current={
-          selection?.kind === "note" && selection.id === note.id
-            ? "true"
-            : undefined
-        }
-        title={`${note.title || "Sin título"}\n${plainText(note.content) || "Nota vacía"}`}
-        onClick={() => props.onSelect(note)}
-        onDragStart={(event) => {
-          event.dataTransfer.setData(NOTE_DRAG_TYPE, note.id);
-          event.dataTransfer.effectAllowed = "move";
-          setDraggedId(note.id);
-          setAnnouncement(
-            "Suelta la nota sobre una carpeta o sobre Cuaderno para moverla a la raíz.",
-          );
-        }}
-        onDragEnd={resetDrag}
-      >
-        <span className="flex items-center gap-2 text-xs leading-5">
-          <ItemIcon
-            icon={note.icon}
-            kind="note"
-            size={13}
-            className="shrink-0 text-muted"
-          />
-          <span className="min-w-0 flex-1 truncate">
-            {note.title || "Sin título"}
-          </span>
-          {note.favorite && (
-            <Star
-              size={11}
-              className="shrink-0 text-muted"
-              fill="currentColor"
-            />
-          )}
-        </span>
-        {showPath && (
-          <span className="block truncate pl-5 text-[10px] leading-4 text-muted">
-            {[
-              "Cuaderno",
-              ...folderPath(folders, note.folderId).map(
-                (folder) => folder.name,
-              ),
-            ].join(" / ")}
-          </span>
-        )}
-      </button>
-    </li>
-  );
-
-  const renderChildren = (
-    parentId: string | null,
-    includeNotes = true,
-  ): ReactNode => {
-    const children = folders
-      .filter((folder) => folder.parentId === parentId)
-      .sort((a, b) => a.name.localeCompare(b.name, "es"));
-    const files = includeNotes
-      ? filterNotes(
-          notes.filter((note) => note.folderId === parentId),
-          "",
-          false,
-        )
-      : [];
-    return (
-      <ul className="min-w-44 list-none">
-        {children.map((folder) => {
-          const isExpanded =
-            expanded.has(folder.id) || (!includeNotes && draggedId !== null);
-          return (
-            <li key={folder.id}>
-              <div
-                {...dropHandlers(folder.id)}
-                data-drop-target={dropTarget === folder.id ? "true" : undefined}
-                className={`mb-0.5 flex items-center rounded ${dropTarget === folder.id ? "bg-selection ring-1 ring-inset ring-strong" : selection?.kind === "folder" && selection.id === folder.id ? "bg-selection" : "bg-transparent hover:bg-hover"}`}
-              >
-                <button
-                  className="flex h-8 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted focus-visible:outline-2 focus-visible:outline-strong"
-                  aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${folder.name}`}
-                  aria-expanded={isExpanded}
-                  onClick={() =>
-                    setExpanded((previous) => {
-                      const next = new Set(previous);
-                      if (next.has(folder.id)) next.delete(folder.id);
-                      else next.add(folder.id);
-                      return next;
-                    })
-                  }
-                >
-                  {isExpanded ? (
-                    <NavArrowDown size={13} />
-                  ) : (
-                    <NavArrowRight size={13} />
-                  )}
-                </button>
-                <button
-                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded py-2 text-left text-xs font-semibold text-secondary focus-visible:outline-2 focus-visible:outline-strong"
-                  title={folder.name}
-                  aria-label={`Seleccionar carpeta ${folder.name}`}
-                  aria-current={
-                    selection?.kind === "folder" && selection.id === folder.id
-                      ? "true"
-                      : undefined
-                  }
-                  onClick={() => {
-                    props.onSelectFolder(folder.id);
-                    setExpanded(
-                      (previous) => new Set([...previous, folder.id]),
-                    );
-                  }}
-                >
-                  <ItemIcon
-                    icon={folder.icon}
-                    kind="folder"
-                    size={17}
-                    strokeWidth={1.75}
-                    className="shrink-0 text-folder/80"
-                  />
-                  <span className="truncate">{folder.name}</span>
-                </button>
-                <details
-                  className="relative shrink-0"
-                  onBlur={(event) => {
-                    if (!event.currentTarget.contains(event.relatedTarget))
-                      event.currentTarget.open = false;
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      event.currentTarget.open = false;
-                      event.currentTarget.querySelector("summary")?.focus();
-                    }
-                  }}
-                >
-                  <summary
-                    className={`${iconButtonClass} list-none [&::-webkit-details-marker]:hidden`}
-                    aria-label={`Opciones de ${folder.name}`}
-                  >
-                    <MoreHoriz size={16} />
-                  </summary>
-                  <MenuItems
-                    onClick={(event) => {
-                      const details = event.currentTarget.closest("details");
-                      if (details) details.open = false;
-                    }}
-                  >
-                    <Button
-                      variant="menu"
-                      onClick={() => props.onNewNote(folder.id)}
-                    >
-                      <Plus size={15} />
-                      Nueva página
-                    </Button>
-                    <Button
-                      variant="menu"
-                      onClick={() => props.onNewFolder(folder.id)}
-                    >
-                      <FolderPlus size={15} />
-                      Nueva carpeta
-                    </Button>
-                    <Button
-                      variant="menu"
-                      onClick={() => props.onRenameFolder(folder)}
-                    >
-                      <EditPencil size={15} />
-                      Renombrar
-                    </Button>
-                    <Button
-                      variant="menu"
-                      onClick={() => props.onChangeFolderIcon(folder)}
-                    >
-                      <Palette size={15} />
-                      Cambiar icono
-                    </Button>
-                    <Button
-                      variant="menuDanger"
-                      onClick={() => props.onDeleteFolder(folder)}
-                    >
-                      <Trash size={15} />
-                      Eliminar carpeta
-                    </Button>
-                  </MenuItems>
-                </details>
-              </div>
-              {isExpanded && (
-                <div
-                  className="ml-2.5 border-l border-line pl-2"
-                  aria-label={`Contenido de ${folder.name}`}
-                >
-                  {renderChildren(folder.id, includeNotes)}
-                </div>
-              )}
-            </li>
-          );
-        })}
-        {files.map((note) => renderNote(note))}
-      </ul>
-    );
-  };
-  const results = filtering ? filterNotes(notes, query, favorites) : [];
-  return (
-    <div className="min-h-0 flex-1 overflow-auto px-2.5 pb-4 [scrollbar-width:thin]">
-      <p role="status" className="sr-only">
-        {announcement}
-      </p>
-      <button
-        {...dropHandlers(null)}
-        data-drop-target={dropTarget === null ? "true" : undefined}
-        className={`mb-1 flex w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs font-semibold text-secondary focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-strong ${dropTarget === null ? "bg-selection ring-1 ring-inset ring-strong" : "bg-transparent hover:bg-hover aria-[current=true]:bg-selection"}`}
-        aria-label="Cuaderno (raíz)"
-        aria-current={selection === null ? "true" : undefined}
-        onClick={() => props.onSelectFolder(null)}
-      >
-        <FolderIcon size={17} strokeWidth={1.75} className="text-folder/80" />
-        Cuaderno
-      </button>
-      {filtering ? (
-        <div key="results">
-          <ul className="list-none">
-            {results.map((note) => renderNote(note, true))}
-          </ul>
-          {!results.length && (
-            <p className="px-3 py-9 text-center text-xs text-muted">
-              {query ? "Sin resultados" : "No hay favoritas"}
-            </p>
-          )}
-        </div>
-      ) : (
-        <div key="tree">{renderChildren(null)}</div>
-      )}
-      {filtering && draggedId !== null && folders.length > 0 && (
-        <div key="destinations" aria-label="Carpetas de destino">
-          <p className="px-2 pt-3 pb-1 text-[10px] text-muted">Mover a</p>
-          {renderChildren(null, false)}
-        </div>
-      )}
-      {!filtering && !notes.length && !folders.length && (
-        <div className="px-3 py-9 text-center text-xs text-muted">
-          <Button variant="text" onClick={() => props.onNewNote(null)}>
-            Crear página
-          </Button>
-        </div>
-      )}
-    </div>
-  );
+  return <div className="min-h-0 flex-1 overflow-auto px-2.5 pb-4 [scrollbar-width:thin]">
+    <p role="status" className="sr-only">{announcement}</p>
+    {filtering ? <div><ul className="list-none">{noteRows(filterNotes(notes, query, favorites), true)}</ul>{!filterNotes(notes, query, favorites).length && <p className="px-3 py-9 text-center text-xs text-muted">{query ? 'Sin resultados' : 'No hay favoritas'}</p>}</div> : <ul className="list-none">
+      {notebooks.map(book => {
+        const pages = filterNotes(notes.filter(note => note.notebookId === book.id), '', false);
+        const isExpanded = expanded.has(book.id);
+        const current = selection?.kind === 'notebook' && selection.id === book.id;
+        return <li key={book.id}>
+          <div {...destinations(book.id)} data-drop-target={dropTarget === book.id ? 'true' : undefined} className={`mb-0.5 flex items-center rounded ${dropTarget === book.id ? 'bg-selection ring-1 ring-inset ring-strong' : current ? 'bg-selection' : 'hover:bg-hover'}`}>
+            <button type="button" className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded px-2 py-2 text-left text-xs font-semibold text-secondary" aria-label={`Abrir cuaderno ${book.name}`} aria-current={current ? 'true' : undefined} onClick={() => { props.onSelectNotebook(book.id); setExpanded(previous => new Set([...previous, book.id])); }}>
+              <Book size={16} className="shrink-0 text-primary" /><span className="min-w-0 flex-1 truncate">{book.name}</span>
+            </button>
+            <button type="button" className="flex size-7 shrink-0 items-center justify-center rounded text-muted hover:bg-hover" aria-label={`${isExpanded ? 'Contraer' : 'Expandir'} ${book.name}`} aria-expanded={isExpanded} onClick={() => setExpanded(previous => { const next = new Set(previous); if (next.has(book.id)) next.delete(book.id); else next.add(book.id); return next; })}>{isExpanded ? '−' : '+'}</button>
+            <details className="relative shrink-0"><summary className={`${iconButtonClass} list-none [&::-webkit-details-marker]:hidden`} aria-label={`Opciones de ${book.name}`}><MoreHoriz size={16} /></summary><MenuItems><Button variant="menu" onClick={() => props.onNewNote(book.id)}><Plus size={15} />Nueva página</Button><Button variant="menu" onClick={() => props.onRenameNotebook(book)}><EditPencil size={15} />Renombrar cuaderno</Button><Button variant="menu" onClick={() => props.onChangeNotebookIcon(book)}><Palette size={15} />Cambiar icono</Button><Button variant="menuDanger" onClick={() => props.onDeleteNotebook(book)}><Trash size={15} />Eliminar cuaderno</Button></MenuItems></details>
+          </div>
+          {isExpanded && <ul className="ml-3 list-none border-l border-line pl-2">{noteRows(pages)}<li><button type="button" className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted hover:text-ink" onClick={() => props.onNewNote(book.id)}><Plus size={13} />Página</button></li></ul>}
+        </li>;
+      })}
+      {!notebooks.length && <li className="px-3 py-8 text-center text-xs text-muted">Crea un cuaderno para empezar.</li>}
+    </ul>}
+    {filtering && draggedId !== null && <div className="mt-3" aria-label="Cuadernos de destino"><p className="px-2 pb-1 text-[10px] text-muted">Mover a otro cuaderno</p>{notebooks.map(book => <button key={book.id} {...destinations(book.id)} type="button" className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs hover:bg-hover" onClick={() => { props.onMoveNote(draggedId, book.id); resetDrag(); }}><Book size={15} />{book.name}</button>)}</div>}
+  </div>;
 }

@@ -240,8 +240,8 @@ export default function ItemIcon({
   kind,
   size = 18,
   ...props
-}: IconProps & { icon?: ItemIconId; kind: "note" | "folder" }) {
-  const id = isItemIconId(icon) ? icon : kind === "folder" ? "folder" : "page";
+}: IconProps & { icon?: ItemIconId; kind: "note" | "notebook" }) {
+  const id = isItemIconId(icon) ? icon : kind === "notebook" ? "book" : "page";
   const Icon = icons[id];
   return (
     <Icon

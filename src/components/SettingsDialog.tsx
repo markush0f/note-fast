@@ -71,7 +71,7 @@ export default function SettingsDialog({
           Copia de seguridad
         </legend>
         <p className="mb-3 text-xs text-muted">
-          Un archivo JSON con tu cuaderno, imágenes, adjuntos, carpetas, papelera y apariencia.
+          Un archivo JSON con tus cuadernos, páginas, imágenes, adjuntos, papelera y apariencia.
           Importarlo sustituye el cuaderno de la cuenta y se sincroniza al conectar.
         </p>
         <div className="flex flex-wrap gap-2">

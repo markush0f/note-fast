@@ -4,13 +4,13 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { dbGet, dbPut } from './offline-db';
 import { OfflineNotebook } from './offline-sync';
 import { createNote } from './notes';
-import type { Workspace } from './workspace';
+import { DEFAULT_NOTEBOOK_ID, DEFAULT_NOTEBOOK_NAME, type Workspace } from './workspace';
 
 vi.mock('./cloud', () => ({ currentUser: vi.fn(async () => ({ id: 'offline-test', name: 'Test', email: 'test@example.com' })) }));
 vi.mock('./attachments', () => ({ uploadAttachments: vi.fn(async () => {}), cacheAttachments: vi.fn(async () => {}) }));
 const user = { id: 'offline-test', name: 'Test', email: 'test@example.com' };
 const note = createNote();
-const original: Workspace = { version: 3, notes: [note], folders: [] };
+const original: Workspace = { version: 4, notes: [note], notebooks: [{ id: DEFAULT_NOTEBOOK_ID, name: DEFAULT_NOTEBOOK_NAME, description: '' }] };
 let notebook: OfflineNotebook | undefined;
 let remote: Workspace;
 let revision: number;

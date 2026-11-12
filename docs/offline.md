@@ -32,7 +32,7 @@ Service workers require HTTPS, except on loopback addresses such as localhost/12
 
 Edits are committed to IndexedDB on each change. A successful local save is distinct from server synchronization. The app retries when connectivity returns and checks for remote changes every 30 seconds while open; background sync while the app is closed is not implemented.
 
-The server uses atomic revision checks to reject stale writes. Three-way merging combines changes to different notes. Competing changes to the same note keep the remote version and create a visible local **(conflicto)** copy; an edit versus a permanent deletion also preserves the edited note. Note conflicts are whole-note copies, not character-level merging. Folder moves are normalized to avoid invalid trees; concurrent folder metadata changes prefer local changes.
+The server uses atomic revision checks to reject stale writes. Three-way merging combines changes to different notes. Competing changes to the same note keep the remote version and create a visible local **(conflicto)** copy; an edit versus a permanent deletion also preserves the edited note. Note conflicts are whole-note copies, not character-level merging. Notebook metadata merges per field; pages moved between notebooks remain attached to their selected notebook.
 
 One editing tab per account/origin is allowed using Web Locks. Another device or browser can edit concurrently. Close the first tab before opening the same account in another tab. A recent browser with IndexedDB, Web Locks and service-worker support is required.
 

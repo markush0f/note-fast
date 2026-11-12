@@ -11,7 +11,9 @@ import {
 } from "./editor-layout";
 import { createNote } from "./notes";
 import {
-  createFolder,
+  createNotebook,
+  DEFAULT_NOTEBOOK_ID,
+  DEFAULT_NOTEBOOK_NAME,
   migrateWorkspace,
   moveNote,
   type Workspace,
@@ -62,9 +64,9 @@ describe("toolbar layout preferences", () => {
     ])
       expect(isToolbarPlacement(invalid)).toBe(false);
     const workspace: Workspace = {
-      version: 3,
+      version: 4,
       notes: [],
-      folders: [],
+      notebooks: [],
       toolbarPosition: { x: 0.37, y: 0.42 },
     };
     expect(migrateWorkspace(JSON.parse(JSON.stringify(workspace)))).toEqual(
@@ -105,9 +107,9 @@ describe("toolbar layout preferences", () => {
   it("retains each valid position when loading a saved workspace", () => {
     for (const { id } of TOOLBAR_POSITIONS) {
       const workspace: Workspace = {
-        version: 3,
+        version: 4,
         notes: [createNote()],
-        folders: [],
+        notebooks: [{ id: DEFAULT_NOTEBOOK_ID, name: DEFAULT_NOTEBOOK_NAME, description: '' }],
         toolbarPosition: id,
       };
       expect(migrateWorkspace(JSON.parse(JSON.stringify(workspace)))).toEqual(
@@ -118,23 +120,16 @@ describe("toolbar layout preferences", () => {
   it("keeps old workspaces compatible and ignores invalid position preferences", () => {
     const note = createNote();
     expect(migrateWorkspace([note])?.toolbarPosition).toBeUndefined();
-    const workspace: Workspace = { version: 3, notes: [note], folders: [] };
+    const workspace: Workspace = { version: 4, notes: [note], notebooks: [{ id: DEFAULT_NOTEBOOK_ID, name: DEFAULT_NOTEBOOK_NAME, description: '' }] };
     expect(migrateWorkspace(workspace)).toEqual(workspace);
     expect(
       migrateWorkspace({ ...workspace, toolbarPosition: "unsupported" }),
     ).toEqual(workspace);
   });
-  it("keeps the preference when notes move between folders", () => {
-    const folder = createFolder("Ideas");
+  it("keeps the preference when pages move between notebooks", () => {
+    const notebook = createNotebook("Ideas");
     const note = createNote();
-    const workspace: Workspace = {
-      version: 3,
-      notes: [note],
-      folders: [folder],
-      toolbarPosition: "bottom-left",
-    };
-    expect(moveNote(workspace, note.id, folder.id).toolbarPosition).toBe(
-      "bottom-left",
-    );
+    const workspace: Workspace = { version: 4, notes: [note], notebooks: [notebook], toolbarPosition: "bottom-left" };
+    expect(moveNote(workspace, note.id, notebook.id).toolbarPosition).toBe("bottom-left");
   });
 });
