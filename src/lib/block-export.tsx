@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
+import { attachmentDataURL } from './attachments';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { ChartGraphic, DataTable } from '../components/BlockPreview';
@@ -48,5 +49,19 @@ export async function exportNoteHTML(html: string): Promise<string> {
       if (['href', 'src', 'xlink:href'].includes(attr.name) && !/^(https?:|mailto:|#|data:image\/)/i.test(attr.value)) el.removeAttribute(attr.name);
     }
   });
+  for (const element of doc.querySelectorAll('[data-attachment-id]')) {
+    const id = element.getAttribute('data-attachment-id')!;
+    const name = element.getAttribute('data-name') || 'Adjunto';
+    const type = element.getAttribute('data-type') || '';
+    const section = doc.createElement('figure');
+    const url = await attachmentDataURL(id);
+    if (type.startsWith('image/')) {
+      const image = doc.createElement('img'); image.src = url; image.alt = name;
+      image.style.maxWidth = '100%'; section.append(image);
+    } else {
+      const link = doc.createElement('a'); link.href = url; link.download = name; link.textContent = `PDF adjunto: ${name}`; section.append(link);
+    }
+    element.replaceWith(section);
+  }
   return `<style>body{font:15px system-ui;max-width:900px;margin:2rem auto;padding:1rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #bbb;padding:.4rem;text-align:left}svg{max-width:100%;height:auto}section{margin:2rem 0}</style>${doc.body.innerHTML}`;
 }
