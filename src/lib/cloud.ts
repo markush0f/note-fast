@@ -1,5 +1,3 @@
-import { migrateWorkspace, type Workspace } from "./workspace";
-
 async function request(path: string, init?: RequestInit): Promise<Response> {
   const response = await fetch(path, { ...init, credentials: "include" });
   if (response.status === 401) throw new Error("unauthorized");
@@ -28,24 +26,4 @@ export async function signUp(name: string, email: string, password: string): Pro
 
 export async function signOut(): Promise<void> {
   await request("/api/auth/sign-out", { method: "POST" });
-}
-
-export async function loadCloudWorkspace(): Promise<Workspace | undefined> {
-  const response = await request("/api/workspace");
-  const { workspace } = await response.json();
-  if (workspace === null) return undefined;
-  const migrated = migrateWorkspace(workspace);
-  if (!migrated) throw new Error("El cuaderno guardado no es válido.");
-  return migrated;
-}
-
-let writes = Promise.resolve();
-export function saveCloudWorkspace(workspace: Workspace): Promise<void> {
-  writes = writes.catch(() => {}).then(async () => {
-    await request("/api/workspace", {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(workspace),
-    });
-  });
-  return writes;
 }

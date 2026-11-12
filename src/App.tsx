@@ -30,7 +30,9 @@ import { createNote, type Note } from "./lib/notes";
 import { checkBlockContentSize } from './lib/note-blocks';
 import { printNote } from './lib/print-note';
 import { hasImportedWorkspaceToCloud, loadWorkspace, markWorkspaceImportedToCloud } from "./lib/storage";
-import { currentUser, loadCloudWorkspace, saveCloudWorkspace, signOut } from "./lib/cloud";
+import { currentUser, signOut } from "./lib/cloud";
+import { OfflineNotebook, cachedUser, rememberUser, forgetUser, hasPendingSignout, finishSignout, type OfflineUser, type SyncStatus } from './lib/offline-sync';
+import { setAttachmentAccount } from './lib/attachments';
 import AuthScreen from "./components/AuthScreen";
 import { isTauri } from "@tauri-apps/api/core";
 import {
@@ -62,11 +64,16 @@ import { DEFAULT_TOOLBAR_POSITION } from "./lib/editor-layout";
 const NoteEditor = lazy(() => import("./components/NoteEditor"));
 
 export default function App() {
-  const [workspace, setWorkspace] = useState<Workspace>({
+  const notebookRef = useRef<OfflineNotebook | null>(null);
+  const [workspace, setWorkspaceState] = useState<Workspace>({
     version: 3,
     notes: [],
     folders: [],
   });
+  const setWorkspace = (action: Workspace | ((previous: Workspace) => Workspace)) => {
+    if (notebookRef.current) notebookRef.current.update(action);
+    else setWorkspaceState(action);
+  };
   const notes = workspace.notes.filter((note) => !note.deletedAt);
   const folders = workspace.folders.filter((folder) => !folder.deletedAt);
   const trashedNotes = workspace.notes.filter((note) => note.deletedAt);
@@ -92,17 +99,16 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [authState, setAuthState] = useState<"checking" | "signed-out" | "signed-in">("checking");
-  const [userEmail, setUserEmail] = useState("");
-  const [loadError, setLoadError] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"saving" | "saved" | "error">(
-    "saved",
-  );
+  const [userEmail, setUserEmail] = useState('');
+  const [user, setUser] = useState<OfflineUser | null>(null);
+  const [loadError, setLoadError] = useState('');
+  const [saveStatus, setSaveStatus] = useState<SyncStatus>('saved');
+  const [syncMessage, setSyncMessage] = useState('');
   const [query, setQuery] = useState("");
   const [favorites, setFavorites] = useState(false);
   const [mobileEditor, setMobileEditor] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [retry, setRetry] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const actionsRef = useRef<HTMLDetailsElement>(null);
   const actionsButtonRef = useRef<HTMLElement>(null);
@@ -156,60 +162,72 @@ export default function App() {
   useEffect(() => {
     if (isTauri()) return;
     let cancelled = false;
-    void currentUser().then((user) => {
-      if (!cancelled) { setUserEmail(user.email); setAuthState("signed-in"); }
-    }).catch(() => { if (!cancelled) setAuthState("signed-out"); });
+    void (async () => {
+      try {
+        if (await hasPendingSignout()) {
+          if (navigator.onLine) { await signOut(); await finishSignout(); }
+          if (!cancelled) setAuthState('signed-out');
+          return;
+        }
+        const account = await currentUser();
+        await rememberUser(account);
+        if (!cancelled) { setUser(account); setUserEmail(account.email); setAuthState('signed-in'); }
+      } catch (error) {
+        const account = error instanceof Error && error.message === 'unauthorized' ? undefined : await cachedUser();
+        if (!cancelled) {
+          if (account) { setUser(account); setUserEmail(account.email); setAuthState('signed-in'); }
+          else setAuthState('signed-out');
+        }
+      }
+    })().catch(() => { if (!cancelled) setAuthState('signed-out'); });
     return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
-    if (authState !== "signed-in") return;
+    if (authState !== 'signed-in' || !user) return;
     let cancelled = false;
-    void (async () => {
-      const remote = await loadCloudWorkspace();
-      let initial = remote;
-      if (!initial && !(await hasImportedWorkspaceToCloud())) {
-        // Importar una sola vez en este navegador; conservar copia local.
-        initial = await loadWorkspace();
-      }
-      if (!initial) initial = { version: 3, notes: [createNote()], folders: [] };
-      if (!remote) await saveCloudWorkspace(initial);
-      await markWorkspaceImportedToCloud();
-      if (cancelled) return;
-      initial = purgeTrash(initial ?? {
-        version: 3,
-        notes: [createNote()],
-        folders: [],
+    let notebook: OfflineNotebook | undefined;
+    const timer = setTimeout(() => {
+      void (async () => {
+        setLoadError('');
+        notebook = await OfflineNotebook.open(user, async () => {
+          const local = !(await hasImportedWorkspaceToCloud()) ? await loadWorkspace() : undefined;
+          await markWorkspaceImportedToCloud();
+          return local ?? { version: 3, notes: [createNote()], folders: [] };
+        }, value => { if (!cancelled) setWorkspaceState(value); }, (status, message) => {
+          if (!cancelled) { setSaveStatus(status); setSyncMessage(message ?? ''); }
+        });
+        if (cancelled) { notebook.stop(); return; }
+        notebookRef.current = notebook;
+        setAttachmentAccount(user.id);
+        const initial = purgeTrash(notebook.workspace);
+        setWorkspaceState(initial);
+        const first = initial.notes.find(note => !note.deletedAt);
+        setSelectedId(first?.id ?? null);
+        setExplorerSelection(first ? { kind: 'note', id: first.id } : null);
+        setActiveFolderId(first?.folderId ?? null);
+        setLoaded(true);
+        notebook.update(initial);
+      })().catch((error: unknown) => {
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : 'No se pudo abrir el cuaderno.');
       });
-      const first = initial.notes.find((note) => !note.deletedAt);
-      setWorkspace(initial);
-      setSelectedId(first?.id ?? null);
-      setExplorerSelection(first ? { kind: "note", id: first.id } : null);
-      setActiveFolderId(first?.folderId ?? null);
-      setLoaded(true);
-    })().catch((error: unknown) => {
-      console.error(error);
-      if (!cancelled) setLoadError(true);
-    });
-    return () => { cancelled = true; };
-  }, [authState]);
+    }, 0);
+    return () => { cancelled = true; clearTimeout(timer); notebook?.stop(); notebookRef.current = null; setAttachmentAccount(null); };
+  }, [authState, user]);
 
   useEffect(() => {
     if (!loaded) return;
-    let cancelled = false;
-    setSaveStatus("saving");
-    void saveCloudWorkspace(workspace)
-      .then(() => {
-        if (!cancelled) setSaveStatus("saved");
-      })
-      .catch((error: unknown) => {
-        console.error(error);
-        if (!cancelled) setSaveStatus("error");
-      });
-    return () => {
-      cancelled = true;
+    const sync = () => { void notebookRef.current?.sync(); };
+    const offline = () => setSaveStatus(previous => previous === 'saving' || previous === 'error' ? previous : 'offline');
+    const warn = (event: BeforeUnloadEvent) => {
+      if (saveStatus === 'saving' || saveStatus === 'error') { event.preventDefault(); event.returnValue = ''; }
     };
-  }, [workspace, loaded, retry]);
+    window.addEventListener('online', sync);
+    window.addEventListener('offline', offline);
+    window.addEventListener('beforeunload', warn);
+    const timer = setInterval(sync, 30_000);
+    return () => { clearInterval(timer); window.removeEventListener('online', sync); window.removeEventListener('offline', offline); window.removeEventListener('beforeunload', warn); };
+  }, [loaded, saveStatus]);
 
   useEffect(() => {
     if (loaded) applyTheme(theme);
@@ -356,7 +374,10 @@ export default function App() {
     return <main className="grid min-h-dvh place-items-center text-muted" role="status">Comprobando sesión…</main>;
   if (authState === "signed-out")
     return <AuthScreen onAuthenticated={() => {
-      void currentUser().then((user) => { setUserEmail(user.email); setLoaded(false); setAuthState("signed-in"); });
+      void currentUser().then(async (account) => {
+        await rememberUser(account);
+        setUser(account); setUserEmail(account.email); setLoaded(false); setAuthState('signed-in');
+      }).catch(() => window.alert('No se pudo abrir la sesión. Reintenta.'));
     }} />;
 
   if (loadError)
@@ -365,8 +386,7 @@ export default function App() {
         <WarningCircle size={24} />
         <h1 className="text-lg text-ink">No pudimos abrir tus notas</h1>
         <p className="max-w-100 text-[13px]">
-          Comprueba el acceso al almacenamiento local. Tus datos no se han
-          sobrescrito.
+          {loadError} Tus datos no se han sobrescrito.
         </p>
         <Button variant="primary" onClick={() => window.location.reload()}>
           Reintentar
@@ -494,7 +514,16 @@ export default function App() {
           </Button>
           <p className="truncate px-2 py-1 text-[11px] text-muted" title={userEmail}>{userEmail}</p>
           <Button variant="menu" onClick={() => {
-            void signOut().then(() => { setLoaded(false); setAuthState("signed-out"); });
+            if (notebookRef.current?.pending && !window.confirm('Hay cambios pendientes de sincronizar. Se conservarán en este dispositivo para cuando vuelvas a entrar con esta cuenta. ¿Cerrar sesión?')) return;
+            void (async () => {
+              try {
+                await notebookRef.current?.flush();
+                if (navigator.onLine) await signOut();
+                await forgetUser(!navigator.onLine);
+                notebookRef.current?.stop();
+                setLoaded(false); setUser(null); setAuthState('signed-out');
+              } catch { window.alert('No se pudo cerrar sesión. Reintenta.'); }
+            })();
           }}>Cerrar sesión</Button>
         </div>
       </aside>
@@ -525,7 +554,7 @@ export default function App() {
           >
             {saveStatus === "error" ? (
               <WarningCircle size={13} />
-            ) : saveStatus === "saving" ? (
+            ) : saveStatus === 'saving' || saveStatus === 'syncing' ? (
               <Refresh
                 size={13}
                 className="animate-spin motion-reduce:animate-none"
@@ -535,21 +564,26 @@ export default function App() {
             )}
             <span>
               {saveStatus === "saved"
-                ? "Guardado"
-                : saveStatus === "saving"
-                  ? "Guardando…"
-                  : "No se pudo guardar"}
+                ? 'Sincronizado'
+                : saveStatus === 'saving'
+                  ? 'Guardando en este dispositivo…'
+                  : saveStatus === 'syncing'
+                    ? 'Sincronizando…'
+                    : saveStatus === 'offline'
+                      ? 'Sin conexión · guardado local'
+                      : 'Pendiente de sincronizar'}
             </span>
             {saveStatus === "error" && (
               <Button
                 variant="text"
                 className="ml-1"
-                onClick={() => setRetry((value) => value + 1)}
+                onClick={() => notebookRef.current?.retry()}
               >
                 Reintentar
               </Button>
             )}
           </div>
+          {syncMessage && <span className="max-w-72 truncate text-[11px] text-danger" title={syncMessage} role="alert">{syncMessage}</span>}
           {selected && (
             <details
               className="relative ml-auto"

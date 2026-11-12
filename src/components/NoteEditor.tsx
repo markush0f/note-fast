@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import BlockDialog from './BlockDialog';
+import { AttachmentNode } from '../lib/attachment-extension';
+import { FILE_ACCEPT, storeAttachment } from '../lib/attachments';
 import { ChartBlock, SpreadsheetBlock, BlockPaste, EDIT_BLOCK_EVENT, prepareBlockChange, type EditBlockDetail } from '../lib/note-block-extension';
 import { BLOCK_LIMIT, byteSize, newChart, newSpreadsheet, type BlockData, type BlockKind } from '../lib/note-blocks';
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
@@ -52,6 +54,10 @@ export default function NoteEditor({
   checkBlockContent,
 }: Props) {
   const boundaryRef = useRef<HTMLDivElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const attachRef = useRef<(files: File[]) => void>(() => {});
+  const [fileError, setFileError] = useState('');
+  const [attaching, setAttaching] = useState(false);
   const [draft, setDraft] = useState<{ kind: BlockKind; data: BlockData; id?: string } | null>(null);
   const [writing, setWriting] = useState(false);
   const [suggestion, setSuggestion] = useState<NoteLinkSuggestion | null>(null);
@@ -85,6 +91,7 @@ export default function NoteEditor({
       TaskItem.configure({ nested: true }),
       ChartBlock,
       SpreadsheetBlock,
+      AttachmentNode,
       BlockPaste,
       TextStyle,
       FontSize,
@@ -98,6 +105,19 @@ export default function NoteEditor({
         "aria-label": "Contenido de la nota",
         role: "textbox",
         "aria-multiline": "true",
+      },
+      handlePaste: (_view, event) => {
+        const files = [...(event.clipboardData?.files ?? [])];
+        if (!files.length) return false;
+        event.preventDefault(); attachRef.current(files); return true;
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        const files = [...(event.dataTransfer?.files ?? [])];
+        if (moved || !files.length) return false;
+        event.preventDefault();
+        const position = view.posAtCoords({ left: event.clientX, top: event.clientY });
+        if (position) editor?.commands.setTextSelection(position.pos);
+        attachRef.current(files); return true;
       },
       handleDOMEvents: {
         focus: () => {
@@ -146,6 +166,23 @@ export default function NoteEditor({
       },
     },
   });
+  useEffect(() => {
+    if (editor && !editor.isDestroyed && editor.getHTML() !== note.content) editor.commands.setContent(note.content, { emitUpdate: false });
+  }, [editor, note.content]);
+  attachRef.current = (files) => {
+    if (!editor || attaching) return;
+    setAttaching(true); setFileError('');
+    void (async () => {
+      try {
+        for (const file of files) {
+          const attachment = await storeAttachment(file);
+          if (editor.isDestroyed) return;
+          editor.chain().focus().insertContentAt(editor.state.selection.to, [{ type: 'attachment', attrs: attachment }, { type: 'paragraph' }]).run();
+        }
+      } catch (error) { setFileError(error instanceof Error ? error.message : 'No se pudo guardar el adjunto.'); }
+      finally { setAttaching(false); }
+    })();
+  };
   useEffect(() => {
     const boundary = boundaryRef.current;
     if (!boundary) return;
@@ -202,8 +239,11 @@ export default function NoteEditor({
       ref={boundaryRef}
       className="relative isolate flex min-h-0 flex-1 flex-col"
     >
+      <input ref={fileInput} type="file" multiple accept={FILE_ACCEPT} className="hidden" aria-label="Seleccionar imágenes o PDF" onChange={event => { attachRef.current([...(event.target.files ?? [])]); event.target.value = ''; }} />
+      {(fileError || attaching) && <p className="px-6 py-2 text-sm text-muted" role={fileError ? 'alert' : 'status'}>{fileError || 'Guardando adjunto en este dispositivo…'}</p>}
       {draft && <BlockDialog initial={draft.data} onApply={applyBlock} onClose={() => setDraft(null)} />}
       <FloatingToolbar
+        onInsertAttachment={() => fileInput.current?.click()}
         onInsertBlock={kind => setDraft({ kind, data: kind === 'chart' ? newChart() : newSpreadsheet() })}
         editor={editor}
         boundaryRef={boundaryRef}

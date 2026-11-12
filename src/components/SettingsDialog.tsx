@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { parseBackup } from "../lib/backup";
+import { useEffect, useState } from "react";
+import { importBackup } from "../lib/backup";
 import { THEMES, type Theme } from "../lib/theme";
 import type { Workspace } from "../lib/workspace";
 import Dialog from "./Dialog";
@@ -9,7 +9,7 @@ import { Button } from "./ui";
 interface Props {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
-  onExport: () => void;
+  onExport: () => void | Promise<void>;
   onImport: (workspace: Workspace) => void;
   onClose: () => void;
 }
@@ -22,7 +22,15 @@ export default function SettingsDialog({
   onClose,
 }: Props) {
   const [pending, setPending] = useState<Workspace | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
+  const [offlineReady, setOfflineReady] = useState(false);
+  useEffect(() => {
+    let active = true;
+    if ('serviceWorker' in navigator && import.meta.env.PROD) {
+      void navigator.serviceWorker.ready.then(() => { if (active) setOfflineReady(true); });
+    }
+    return () => { active = false; };
+  }, []);
   return (
     <Dialog title="Ajustes" onClose={onClose}>
       <fieldset className="mt-5">
@@ -52,16 +60,22 @@ export default function SettingsDialog({
           })}
         </div>
       </fieldset>
+      <section className="mt-6 text-xs text-muted" aria-label="Acceso sin conexión">
+        <h2 className="mb-2 font-medium text-secondary">Acceso sin conexión</h2>
+        <p>{!import.meta.env.PROD ? 'La instalación y apertura sin internet requieren la versión de producción; en desarrollo puedes seguir editando con la pestaña abierta.' : offlineReady ? 'Aplicación preparada para abrirse sin internet. Puedes instalarla desde el menú del navegador (Instalar aplicación / Añadir a inicio).' : 'Descargando la aplicación para abrirla sin internet. Mantén esta pestaña abierta hasta que termine.'}</p>
+        <p className="mt-2">Espera al estado «Sincronizado» para disponer también de los adjuntos descargados. Los cambios sin conexión se guardan en este navegador y se sincronizan al reconectar; las ediciones incompatibles crean una nota «(conflicto)».</p>
+        <p className="mt-2">No borres los datos del navegador si tienes cambios pendientes. En dispositivos compartidos, cierra sesión; las copias locales no están cifradas.</p>
+      </section>
       <fieldset className="mt-6">
         <legend className="mb-3 text-xs font-medium text-secondary">
           Copia de seguridad
         </legend>
         <p className="mb-3 text-xs text-muted">
-          Un archivo JSON con notas, carpetas, papelera y apariencia. Importarlo
-          sustituye el cuaderno de este dispositivo.
+          Un archivo JSON con notas, imágenes, adjuntos, carpetas, papelera y apariencia.
+          Importarlo sustituye el cuaderno de la cuenta y se sincroniza al conectar.
         </p>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={onExport}>
+          <Button onClick={() => { setError(''); void Promise.resolve(onExport()).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'No se pudo exportar el cuaderno.')); }}>
             <Download size={15} />
             Exportar cuaderno
           </Button>
@@ -77,7 +91,8 @@ export default function SettingsDialog({
                 event.target.value = "";
                 if (!file) return;
                 try {
-                  setPending(parseBackup(await file.text()));
+                  if (file.size > 150 * 1024 * 1024) throw new Error('La copia supera 150 MiB.');
+                  setPending(await importBackup(await file.text()));
                   setError("");
                 } catch (caught) {
                   setPending(null);

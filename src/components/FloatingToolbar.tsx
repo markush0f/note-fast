@@ -16,6 +16,7 @@ interface Props {
   placement: ToolbarPlacement;
   onPlacementChange: (placement: ToolbarPlacement) => void;
   onInsertBlock?: (kind: 'chart' | 'spreadsheet') => void;
+  onInsertAttachment?: () => void;
 }
 
 export default function FloatingToolbar({
@@ -24,6 +25,7 @@ export default function FloatingToolbar({
   placement,
   onPlacementChange,
   onInsertBlock,
+  onInsertAttachment,
 }: Props) {
   const instructions = useId();
   const { toolbarRef, preview, handleProps } = useToolbarDrag(
@@ -86,6 +88,7 @@ export default function FloatingToolbar({
       <EditorToolbar
         editor={editor}
         onInsertBlock={onInsertBlock}
+        onInsertAttachment={onInsertAttachment}
         placement={placement}
         onPlacementChange={onPlacementChange}
         dragging={Boolean(preview)}
