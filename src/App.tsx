@@ -28,6 +28,7 @@ import {
 import { Button, iconButtonClass, MenuItems } from "./components/ui";
 import { createNote, type Note } from "./lib/notes";
 import { checkBlockContentSize } from './lib/note-blocks';
+import { printNote } from './lib/print-note';
 import { hasImportedWorkspaceToCloud, loadWorkspace, markWorkspaceImportedToCloud } from "./lib/storage";
 import { currentUser, loadCloudWorkspace, saveCloudWorkspace, signOut } from "./lib/cloud";
 import AuthScreen from "./components/AuthScreen";
@@ -613,6 +614,19 @@ export default function App() {
                 >
                   <Download size={15} />
                   Exportar HTML
+                </Button>
+                <Button
+                  variant="menu"
+                  aria-label="Exportar nota como PDF"
+                  onClick={() => {
+                    void printNote(selected.title, selected.content).catch((error: unknown) => {
+                      window.alert(error instanceof Error ? error.message : 'No se pudo exportar la nota como PDF.');
+                    });
+                    closeActions();
+                  }}
+                >
+                  <Download size={15} />
+                  Exportar PDF
                 </Button>
                 <Button
                   variant="menuDanger"

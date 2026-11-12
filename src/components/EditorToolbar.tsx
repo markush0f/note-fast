@@ -9,6 +9,8 @@ import {
 import { useEditorState, type Editor } from "@tiptap/react";
 import {
   Bold,
+  StatsUpSquare,
+  Table2Columns,
   Plus,
   Italic,
   Underline,
@@ -254,7 +256,7 @@ export default function EditorToolbar({
       {onInsertBlock && <>
         <Tooltip label="Insertar" disabled={dragging || menu === 'insert'}><button type="button" ref={insertRef} className={railButton} aria-label="Insertar" aria-expanded={menu === 'insert'} onMouseDown={e => e.preventDefault()} onClick={() => setMenu(menu === 'insert' ? null : 'insert')}><Plus size={16} /></button></Tooltip>
         <ToolbarPopover open={menu === 'insert' && !dragging} anchorRef={insertRef} align={align} label="Insertar">
-          <div className="grid gap-1 p-2">{([['chart', 'Gráfica'], ['spreadsheet', 'Hoja de cálculo']] as const).map(([kind, label]) => <button key={kind} type="button" className="rounded px-3 py-2 text-left text-sm hover:bg-hover" onMouseDown={e => e.preventDefault()} onClick={() => { setMenu(null); onInsertBlock(kind); }}>{label}</button>)}</div>
+          <div className="grid gap-1 p-2">{([['chart', 'Gráfica', StatsUpSquare], ['spreadsheet', 'Hoja de cálculo', Table2Columns]] as const).map(([kind, label, Icon]) => <button key={kind} type="button" className="flex items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-hover" onMouseDown={e => e.preventDefault()} onClick={() => { setMenu(null); onInsertBlock(kind); }}><Icon size={18} className="shrink-0" />{label}</button>)}</div>
         </ToolbarPopover>
       </>}
       <span className="my-0.5 h-px w-5 bg-line" aria-hidden="true" />

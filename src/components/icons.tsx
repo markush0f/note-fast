@@ -17,6 +17,8 @@ import {
   Folder as FolderIcon,
   FolderPlus as FolderPlusIcon,
   EditPencil as EditPencilIcon,
+  StatsUpSquare as StatsUpSquareIcon,
+  Table2Columns as Table2ColumnsIcon,
   Bold as BoldIcon,
   Italic as ItalicIcon,
   Underline as UnderlineIcon,
@@ -89,6 +91,8 @@ export const Page = icon(PageIcon);
 export const Folder = icon(FolderIcon);
 export const FolderPlus = icon(FolderPlusIcon);
 export const EditPencil = icon(EditPencilIcon);
+export const StatsUpSquare = icon(StatsUpSquareIcon);
+export const Table2Columns = icon(Table2ColumnsIcon);
 export const Bold = icon(BoldIcon);
 export const Italic = icon(ItalicIcon);
 export const Underline = icon(UnderlineIcon);
