@@ -1,0 +1,17 @@
+# Built web app with offline support. Use with compose.yaml (Docker Compose 2.24.4+).
+services:
+  frontend:
+    image: ntbk-frontend:pwa
+    build:
+      context: .
+      target: frontend
+    command: ["nginx", "-g", "daemon off;"]
+    environment: !reset {}
+    volumes: !reset []
+    ports: !override
+      - "127.0.0.1:1420:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
