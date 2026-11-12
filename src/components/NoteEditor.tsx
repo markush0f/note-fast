@@ -1,11 +1,14 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import BlockDialog from './BlockDialog';
+import { ChartBlock, SpreadsheetBlock, BlockPaste, EDIT_BLOCK_EVENT, prepareBlockChange, type EditBlockDetail } from '../lib/note-block-extension';
+import { BLOCK_LIMIT, byteSize, newChart, newSpreadsheet, type BlockData, type BlockKind } from '../lib/note-blocks';
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { TextStyle, FontSize, Color } from "@tiptap/extension-text-style";
-import { characterCount, wordCount, type Note } from "../lib/notes";
+import { characterCount, wordCount, plainText, type Note } from "../lib/notes";
 import type { ToolbarPlacement } from "../lib/editor-layout";
 import { NoteLink, type NoteLinkSuggestion } from "../lib/note-link-extension";
 import { noteTitle, rankNoteLinks } from "../lib/note-links";
@@ -35,6 +38,7 @@ interface Props {
   onToolbarPositionChange: (position: ToolbarPlacement) => void;
   notes: Note[];
   onOpenNote: (id: string) => void;
+  checkBlockContent: (content: string) => string | null;
 }
 
 export default function NoteEditor({
@@ -45,8 +49,10 @@ export default function NoteEditor({
   onToolbarPositionChange,
   notes,
   onOpenNote,
+  checkBlockContent,
 }: Props) {
   const boundaryRef = useRef<HTMLDivElement>(null);
+  const [draft, setDraft] = useState<{ kind: BlockKind; data: BlockData; id?: string } | null>(null);
   const [writing, setWriting] = useState(false);
   const [suggestion, setSuggestion] = useState<NoteLinkSuggestion | null>(null);
   const [linkIndex, setLinkIndex] = useState(0);
@@ -59,6 +65,7 @@ export default function NoteEditor({
   suggestionRef.current = suggestion;
   indexRef.current = linkIndex;
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         link: {
@@ -76,6 +83,9 @@ export default function NoteEditor({
       Placeholder.configure({ placeholder: "Escribe…" }),
       TaskList,
       TaskItem.configure({ nested: true }),
+      ChartBlock,
+      SpreadsheetBlock,
+      BlockPaste,
       TextStyle,
       FontSize,
       Color,
@@ -136,6 +146,24 @@ export default function NoteEditor({
       },
     },
   });
+  useEffect(() => {
+    const boundary = boundaryRef.current;
+    if (!boundary) return;
+    const open = (event: Event) => setDraft((event as CustomEvent<EditBlockDetail>).detail);
+    boundary.addEventListener(EDIT_BLOCK_EVENT, open);
+    return () => boundary.removeEventListener(EDIT_BLOCK_EVENT, open);
+  }, [editor]);
+  const applyBlock = (data: BlockData) => {
+    if (!editor || !draft) return 'No se encuentra el editor.';
+    if (byteSize(JSON.stringify(data)) > BLOCK_LIMIT) return 'El bloque supera el límite de 1 MiB. Reduce sus datos.';
+    try {
+      const { transaction, html } = prepareBlockChange(editor, draft.kind, data, draft.id);
+      const error = checkBlockContent(html);
+      if (error) return error;
+      editor.view.dispatch(transaction);
+      return null;
+    } catch (error) { return error instanceof Error ? error.message : 'No se pudo aplicar el bloque.'; }
+  };
   insertRef.current = (target: Note) => {
     const current = suggestionRef.current;
     if (!editor || !current) return;
@@ -163,10 +191,10 @@ export default function NoteEditor({
 
   const text = useEditorState({
     editor,
-    selector: ({ editor }) => editor.getText(),
+    selector: ({ editor }) => editor && !editor.isDestroyed ? editor.getText() : null,
   });
-  const words = wordCount(text ?? "");
-  const characters = characterCount(text ?? "");
+  const words = wordCount(text ?? plainText(note.content));
+  const characters = characterCount(text ?? plainText(note.content));
 
   if (!editor) return null;
   return (
@@ -174,7 +202,9 @@ export default function NoteEditor({
       ref={boundaryRef}
       className="relative isolate flex min-h-0 flex-1 flex-col"
     >
+      {draft && <BlockDialog initial={draft.data} onApply={applyBlock} onClose={() => setDraft(null)} />}
       <FloatingToolbar
+        onInsertBlock={kind => setDraft({ kind, data: kind === 'chart' ? newChart() : newSpreadsheet() })}
         editor={editor}
         boundaryRef={boundaryRef}
         placement={toolbarPosition}

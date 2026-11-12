@@ -6,10 +6,10 @@ import type { Auth } from './auth'
 import type { Config } from './config'
 import type { Pool } from 'pg'
 
-function isWorkspace(value: unknown): value is { version: 2; notes: unknown[]; folders: unknown[] } {
+function isWorkspace(value: unknown): value is { version: 2 | 3; notes: unknown[]; folders: unknown[] } {
   if (!value || typeof value !== 'object') return false
   const workspace = value as Record<string, unknown>
-  if (workspace.version !== 2 || !Array.isArray(workspace.notes) || !Array.isArray(workspace.folders)) return false
+  if ((workspace.version !== 2 && workspace.version !== 3) || !Array.isArray(workspace.notes) || !Array.isArray(workspace.folders)) return false
   if (workspace.notes.length > 20_000 || workspace.folders.length > 5_000) return false
   return workspace.notes.every((note) => note && typeof note === 'object'
     && typeof note.id === 'string' && typeof note.title === 'string' && typeof note.content === 'string'
@@ -97,11 +97,14 @@ export function createApp({ auth, checkDatabase, config, database }: Dependencie
     try { value = await c.req.json() } catch { return c.json({ error: 'invalid_workspace' }, 400) }
     if (!isWorkspace(value)) return c.json({ error: 'invalid_workspace' }, 400)
     const workspace = value
-    await database.query(
+    const result = await database.query(
       `INSERT INTO user_workspace (user_id, payload, updated_at) VALUES ($1, $2::jsonb, NOW())
-       ON CONFLICT (user_id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()`,
+       ON CONFLICT (user_id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()
+       WHERE (user_workspace.payload->>'version')::int <= (EXCLUDED.payload->>'version')::int
+       RETURNING user_id`,
       [user.id, JSON.stringify(workspace)],
     )
+    if (!result.rows.length) return c.json({ error: 'workspace_upgrade_required' }, 409)
     return c.json({ ok: true })
   })
 

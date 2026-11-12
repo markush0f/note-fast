@@ -19,7 +19,7 @@ export interface Folder {
 export const TRASH_DAYS = 30;
 const TRASH_MS = TRASH_DAYS * 24 * 60 * 60 * 1000;
 export interface Workspace {
-  version: 2;
+  version: 3;
   notes: Note[];
   folders: Folder[];
   toolbarPosition?: ToolbarPlacement;
@@ -38,11 +38,11 @@ export function createFolder(
 export function migrateWorkspace(value: unknown): Workspace | undefined {
   if (value === undefined) return undefined;
   const legacy = Array.isArray(value);
-  const source = value as Partial<Workspace> | null;
+  const source = value as (Omit<Partial<Workspace>, 'version'> & { version?: number }) | null;
   if (
     !legacy &&
     (!source ||
-      source.version !== 2 ||
+      (source.version !== 2 && source.version !== 3) ||
       !Array.isArray(source.notes) ||
       !Array.isArray(source.folders))
   ) {
@@ -90,7 +90,7 @@ export function migrateWorkspace(value: unknown): Workspace | undefined {
     }
   }
   return {
-    version: 2,
+    version: 3,
     notes: notes.map((note) => ({
       ...normalizeItemIcon(note),
       folderId:

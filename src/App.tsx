@@ -27,6 +27,7 @@ import {
 } from "./components/icons";
 import { Button, iconButtonClass, MenuItems } from "./components/ui";
 import { createNote, type Note } from "./lib/notes";
+import { checkBlockContentSize } from './lib/note-blocks';
 import { hasImportedWorkspaceToCloud, loadWorkspace, markWorkspaceImportedToCloud } from "./lib/storage";
 import { currentUser, loadCloudWorkspace, saveCloudWorkspace, signOut } from "./lib/cloud";
 import AuthScreen from "./components/AuthScreen";
@@ -61,7 +62,7 @@ const NoteEditor = lazy(() => import("./components/NoteEditor"));
 
 export default function App() {
   const [workspace, setWorkspace] = useState<Workspace>({
-    version: 2,
+    version: 3,
     notes: [],
     folders: [],
   });
@@ -170,12 +171,12 @@ export default function App() {
         // Importar una sola vez en este navegador; conservar copia local.
         initial = await loadWorkspace();
       }
-      if (!initial) initial = { version: 2, notes: [createNote()], folders: [] };
+      if (!initial) initial = { version: 3, notes: [createNote()], folders: [] };
       if (!remote) await saveCloudWorkspace(initial);
       await markWorkspaceImportedToCloud();
       if (cancelled) return;
       initial = purgeTrash(initial ?? {
-        version: 2,
+        version: 3,
         notes: [createNote()],
         folders: [],
       });
@@ -233,6 +234,7 @@ export default function App() {
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       if (!(event.ctrlKey || event.metaKey)) return;
       if (event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -312,7 +314,7 @@ export default function App() {
     setDeleteFolderId(null);
   };
 
-  const exportNote = () => {
+  const exportNote = async () => {
     if (!selected) return;
     const title = selected.title || "Sin título";
     const escape = (text: string) =>
@@ -327,9 +329,15 @@ export default function App() {
             "'": "&#39;",
           })[char]!,
       );
+    let content: string;
+    try {
+      const { exportNoteHTML } = await import('./lib/block-export');
+      content = await exportNoteHTML(selected.content);
+    }
+    catch (error) { window.alert(error instanceof Error ? error.message : 'No se pudo exportar la nota.'); return; }
     const blob = new Blob(
       [
-        `<!doctype html><html lang="es"><meta charset="utf-8"><title>${escape(title)}</title><body><h1>${escape(title)}</h1>${selected.content}</body></html>`,
+        `<!doctype html><html lang="es"><meta charset="utf-8"><title>${escape(title)}</title><body><h1>${escape(title)}</h1>${content}</body></html>`,
       ],
       { type: "text/html;charset=utf-8" },
     );
@@ -631,6 +639,7 @@ export default function App() {
             <NoteEditor
               key={selected.id}
               note={selected}
+              checkBlockContent={(content) => checkBlockContentSize(workspace, selected.id, content)}
               onChange={(content) => updateNote(selected.id, { content })}
               onTitleChange={(title) => updateNote(selected.id, { title })}
               toolbarPosition={

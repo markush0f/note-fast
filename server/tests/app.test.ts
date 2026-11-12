@@ -21,8 +21,11 @@ function setup() {
       return { rows: payload === undefined ? [] : [{ payload }] }
     }
     if (sql.includes('INSERT INTO user_workspace')) {
-      workspaces.set(String(params[0]), JSON.parse(String(params[1])))
-      return { rows: [] }
+      const incoming = JSON.parse(String(params[1]))
+      const existing = workspaces.get(String(params[0])) as { version: number } | undefined
+      if (sql.includes('WHERE (user_workspace.payload') && existing && existing.version > incoming.version) return { rows: [] }
+      workspaces.set(String(params[0]), incoming)
+      return { rows: [{ user_id: params[0] }] }
     }
     return { rows: [] }
   }) }
@@ -103,6 +106,24 @@ describe('API multiusuario', () => {
     expect((await otherWorkspace.json()).workspace).toBeNull()
     expect((await api.app.request('http://localhost:3000/api/workspace', { method: 'PUT', headers: { Origin: config.origins[0], 'Content-Type': 'application/json' }, body: JSON.stringify(workspace) })).status).toBe(401)
     expect((await api.app.request('http://localhost:3000/api/workspace', { method: 'PUT', headers: { Origin: config.origins[0], Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 99 }) })).status).toBe(400)
+  })
+
+  it('protege v3 de escrituras antiguas y conserva el registro ante errores', async () => {
+    const signup = await api.post('/api/auth/sign-up/email', account)
+    const cookie = cookies(signup)
+    const put = (value: unknown) => api.app.request('http://localhost:3000/api/workspace', {
+      method: 'PUT', headers: { Origin: config.origins[0], Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify(value),
+    })
+    expect((await put({ version: 2, notes: [], folders: [] })).status).toBe(200)
+    const workspace = { version: 3, notes: [], folders: [], theme: 'dark' }
+    expect((await put(workspace)).status).toBe(200)
+    const old = await put({ version: 2, notes: [], folders: [] })
+    expect(old.status).toBe(409)
+    expect(await old.json()).toEqual({ error: 'workspace_upgrade_required' })
+    expect((await put({ version: 3, notes: [null], folders: [] })).status).toBe(400)
+    expect((await put({ ...workspace, extra: 'x'.repeat(5 * 1024 * 1024) })).status).toBe(413)
+    const current = await api.app.request('http://localhost:3000/api/workspace', { headers: { Cookie: cookie } })
+    expect((await current.json()).workspace).toEqual(workspace)
   })
 
   it('rechaza contraseñas cortas y credenciales incorrectas', async () => {

@@ -1,4 +1,5 @@
 import type { ItemIconId } from "./item-icons";
+import { blockText, readBlock } from './note-blocks';
 
 export interface Note {
   id: string;
@@ -27,6 +28,10 @@ export function createNote(folderId: string | null = null): Note {
 
 export function plainText(html: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll('[data-ntbk-block]').forEach(element => {
+    const data = readBlock(element.getAttribute('data-ntbk-block'), element.getAttribute('data-ntbk-payload'));
+    element.textContent = data ? blockText(data) : '';
+  });
   doc
     .querySelectorAll("p, div, h1, h2, h3, h4, h5, h6, li, blockquote, pre, br")
     .forEach((element) => {

@@ -7,7 +7,7 @@ describe("notebook backup", () => {
   it("roundtrips notes, folders, trash and appearance", () => {
     const note = { ...createNote(), title: "Plan", deletedAt: "2026-01-01T00:00:00.000Z" };
     const workspace: Workspace = {
-      version: 2,
+      version: 3,
       notes: [note],
       folders: [],
       theme: "dark",

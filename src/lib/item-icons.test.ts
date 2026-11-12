@@ -19,7 +19,7 @@ import {
 function fixture(): Workspace {
   const folder = createFolder("Proyectos");
   return {
-    version: 2,
+    version: 3,
     notes: [createNote(folder.id), createNote()],
     folders: [folder],
   };

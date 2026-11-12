@@ -44,6 +44,22 @@ describe.skipIf(!databaseUrl)('integración PostgreSQL (base de pruebas desechab
       const secondAuth = createAuth(config, database)
       const session = await secondAuth.api.getSession({ headers: new Headers({ Cookie: cookie }) })
       expect(session?.user.email).toBe(email)
+      await database.query(`CREATE TABLE IF NOT EXISTS user_workspace (
+        user_id TEXT PRIMARY KEY REFERENCES "user"(id) ON DELETE CASCADE,
+        payload JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`)
+      const put = (version: number) => app.request('http://localhost:3000/api/workspace', {
+        method: 'PUT', headers: { Origin: config.origins[0], 'Content-Type': 'application/json', Cookie: cookie },
+        body: JSON.stringify({ version, notes: [], folders: [] }),
+      })
+      expect((await put(2)).status).toBe(200)
+      expect((await put(3)).status).toBe(200)
+      // Real PostgreSQL exercises the conditional upsert, not the memory double.
+      expect((await put(2)).status).toBe(409)
+      const competing = await Promise.all([put(2), put(3), put(2)])
+      expect(competing.map(response => response.status)).toEqual([409, 200, 409])
+      const saved = await database.query('SELECT payload FROM user_workspace WHERE user_id=$1', [session!.user.id])
+      expect(saved.rows[0].payload.version).toBe(3)
       expect((await request('/api/auth/sign-out', {}, cookie)).status).toBe(200)
       expect(await secondAuth.api.getSession({ headers: new Headers({ Cookie: cookie }) })).toBeNull()
     } finally {

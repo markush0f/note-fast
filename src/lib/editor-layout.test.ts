@@ -62,7 +62,7 @@ describe("toolbar layout preferences", () => {
     ])
       expect(isToolbarPlacement(invalid)).toBe(false);
     const workspace: Workspace = {
-      version: 2,
+      version: 3,
       notes: [],
       folders: [],
       toolbarPosition: { x: 0.37, y: 0.42 },
@@ -105,7 +105,7 @@ describe("toolbar layout preferences", () => {
   it("retains each valid position when loading a saved workspace", () => {
     for (const { id } of TOOLBAR_POSITIONS) {
       const workspace: Workspace = {
-        version: 2,
+        version: 3,
         notes: [createNote()],
         folders: [],
         toolbarPosition: id,
@@ -118,7 +118,7 @@ describe("toolbar layout preferences", () => {
   it("keeps old workspaces compatible and ignores invalid position preferences", () => {
     const note = createNote();
     expect(migrateWorkspace([note])?.toolbarPosition).toBeUndefined();
-    const workspace: Workspace = { version: 2, notes: [note], folders: [] };
+    const workspace: Workspace = { version: 3, notes: [note], folders: [] };
     expect(migrateWorkspace(workspace)).toEqual(workspace);
     expect(
       migrateWorkspace({ ...workspace, toolbarPosition: "unsupported" }),
@@ -128,7 +128,7 @@ describe("toolbar layout preferences", () => {
     const folder = createFolder("Ideas");
     const note = createNote();
     const workspace: Workspace = {
-      version: 2,
+      version: 3,
       notes: [note],
       folders: [folder],
       toolbarPosition: "bottom-left",

@@ -15,6 +15,7 @@ interface Props {
   boundaryRef: RefObject<HTMLDivElement | null>;
   placement: ToolbarPlacement;
   onPlacementChange: (placement: ToolbarPlacement) => void;
+  onInsertBlock?: (kind: 'chart' | 'spreadsheet') => void;
 }
 
 export default function FloatingToolbar({
@@ -22,6 +23,7 @@ export default function FloatingToolbar({
   boundaryRef,
   placement,
   onPlacementChange,
+  onInsertBlock,
 }: Props) {
   const instructions = useId();
   const { toolbarRef, preview, handleProps } = useToolbarDrag(
@@ -83,6 +85,7 @@ export default function FloatingToolbar({
     >
       <EditorToolbar
         editor={editor}
+        onInsertBlock={onInsertBlock}
         placement={placement}
         onPlacementChange={onPlacementChange}
         dragging={Boolean(preview)}

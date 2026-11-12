@@ -9,6 +9,7 @@ import {
 import { useEditorState, type Editor } from "@tiptap/react";
 import {
   Bold,
+  Plus,
   Italic,
   Underline,
   Strikethrough,
@@ -44,6 +45,7 @@ interface Props {
   editor: Editor;
   placement: ToolbarPlacement;
   onPlacementChange: (placement: ToolbarPlacement) => void;
+  onInsertBlock?: (kind: 'chart' | 'spreadsheet') => void;
   dragHandle: ReactNode;
   dragging: boolean;
 }
@@ -58,18 +60,20 @@ const cornerPreview: Record<ToolbarPosition, string> = {
 const railButton =
   "inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-muted hover:bg-hover hover:text-ink aria-pressed:bg-primary aria-pressed:text-on-primary focus-visible:outline-2 focus-visible:outline-strong disabled:cursor-default disabled:opacity-30";
 
-type Menu = "size" | "more" | "position" | "link" | "color";
+type Menu = "size" | "more" | "position" | "link" | "color" | "insert";
 
 export default function EditorToolbar({
   editor,
   placement,
   onPlacementChange,
   dragHandle,
+  onInsertBlock,
   dragging,
 }: Props) {
   const [menu, setMenu] = useState<Menu | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
+  const insertRef = useRef<HTMLButtonElement>(null);
   const linkRef = useRef<HTMLButtonElement>(null);
   const colorRef = useRef<HTMLButtonElement>(null);
   const positionRef = useRef<HTMLButtonElement>(null);
@@ -122,6 +126,7 @@ export default function EditorToolbar({
       const current = menu;
       setMenu(null);
       if (current === "more") moreRef.current?.focus();
+      if (current === "insert") insertRef.current?.focus();
       if (current === "link") linkRef.current?.focus();
       if (current === "color") colorRef.current?.focus();
       if (current === "position") positionRef.current?.focus();
@@ -246,6 +251,12 @@ export default function EditorToolbar({
       aria-label="Formato de texto"
     >
       {dragHandle}
+      {onInsertBlock && <>
+        <Tooltip label="Insertar" disabled={dragging || menu === 'insert'}><button type="button" ref={insertRef} className={railButton} aria-label="Insertar" aria-expanded={menu === 'insert'} onMouseDown={e => e.preventDefault()} onClick={() => setMenu(menu === 'insert' ? null : 'insert')}><Plus size={16} /></button></Tooltip>
+        <ToolbarPopover open={menu === 'insert' && !dragging} anchorRef={insertRef} align={align} label="Insertar">
+          <div className="grid gap-1 p-2">{([['chart', 'Gráfica'], ['spreadsheet', 'Hoja de cálculo']] as const).map(([kind, label]) => <button key={kind} type="button" className="rounded px-3 py-2 text-left text-sm hover:bg-hover" onMouseDown={e => e.preventDefault()} onClick={() => { setMenu(null); onInsertBlock(kind); }}>{label}</button>)}</div>
+        </ToolbarPopover>
+      </>}
       <span className="my-0.5 h-px w-5 bg-line" aria-hidden="true" />
       <FontSizeControl
         editor={editor}

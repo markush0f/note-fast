@@ -5,7 +5,7 @@ import { createNote } from "./notes";
 import { hasImportedWorkspaceToCloud, loadWorkspace, markWorkspaceImportedToCloud, saveWorkspace, storageLabel } from "./storage";
 import { createFolder, type Workspace } from "./workspace";
 
-const empty = (): Workspace => ({ version: 2, notes: [], folders: [] });
+const empty = (): Workspace => ({ version: 3, notes: [], folders: [] });
 beforeEach(async () => {
   await clear();
 });
@@ -35,7 +35,7 @@ describe("IndexedDB persistence", () => {
       icon: "book" as const,
     };
     const workspace: Workspace = {
-      version: 2,
+      version: 3,
       notes: [note],
       folders: [parent, child],
     };
@@ -101,7 +101,7 @@ describe("IndexedDB persistence", () => {
     await set("ntbk:workspace:v1", [legacy]);
     const workspace = await loadWorkspace();
     expect(workspace).toEqual({
-      version: 2,
+      version: 3,
       folders: [],
       notes: [{ ...legacy, folderId: null }],
     });

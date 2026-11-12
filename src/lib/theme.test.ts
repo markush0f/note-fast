@@ -3,8 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { applyTheme, getInitialTheme, isTheme, THEME_CACHE_KEY } from "./theme";
 import { createNote } from "./notes";
 import { migrateWorkspace } from "./workspace";
+import { JSDOM } from 'jsdom';
+const storageWindow = new JSDOM('', { url: 'http://localhost' }).window;
 
 beforeEach(() => {
+  // Node 25 also exposes a native localStorage; use the jsdom implementation.
+  vi.stubGlobal('localStorage', storageWindow.localStorage);
+  vi.stubGlobal('Storage', storageWindow.Storage);
   localStorage.clear();
   delete document.documentElement.dataset.theme;
   vi.restoreAllMocks();
@@ -41,7 +46,7 @@ describe("appearance preference", () => {
   });
   it("loads saved appearance without changing existing notes or toolbar preferences", () => {
     const workspace = {
-      version: 2 as const,
+      version: 3 as const,
       notes: [createNote()],
       folders: [],
       toolbarPosition: "bottom-left" as const,

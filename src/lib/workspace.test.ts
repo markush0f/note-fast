@@ -38,7 +38,7 @@ describe("folder workspace", () => {
     };
     const other = createNote(parent.id);
     const workspace: Workspace = {
-      version: 2,
+      version: 3,
       folders: [parent, child],
       notes: [note, other],
     };
@@ -60,7 +60,7 @@ describe("folder workspace", () => {
     const a = createFolder("A");
     const b = createFolder("B");
     const note = createNote(a.id);
-    const workspace: Workspace = { version: 2, folders: [a, b], notes: [note] };
+    const workspace: Workspace = { version: 3, folders: [a, b], notes: [note] };
     const moved = moveNote(workspace, note.id, b.id);
     expect(moved.notes[0].folderId).toBe(b.id);
     expect(moveNote(moved, note.id, null).notes[0].folderId).toBeNull();
@@ -69,7 +69,7 @@ describe("folder workspace", () => {
     const folder = createFolder("A");
     const note = createNote(folder.id);
     const workspace: Workspace = {
-      version: 2,
+      version: 3,
       folders: [folder],
       notes: [note],
     };
@@ -85,7 +85,7 @@ describe("folder workspace", () => {
     const rootNote = createNote();
     const siblingNote = createNote(sibling.id);
     const workspace: Workspace = {
-      version: 2,
+      version: 3,
       folders: [grandchild, child, root, sibling],
       notes: [
         createNote(root.id),
@@ -113,7 +113,7 @@ describe("folder workspace", () => {
     const note = { ...createNote(folder.id), title: "Plan" };
     const earlier = createNote(folder.id);
     const workspace: Workspace = {
-      version: 2,
+      version: 3,
       folders: [folder],
       notes: [kept, note, earlier],
     };
@@ -156,7 +156,7 @@ describe("folder workspace", () => {
   it("keeps legacy and intentionally empty workspaces", () => {
     expect(migrateWorkspace(undefined)).toBeUndefined();
     expect(migrateWorkspace([])).toEqual({
-      version: 2,
+      version: 3,
       notes: [],
       folders: [],
     });
@@ -186,7 +186,7 @@ describe("folder workspace", () => {
   });
   it("rejects malformed payloads instead of replacing them", () => {
     expect(() =>
-      migrateWorkspace({ version: 3, notes: [], folders: [] }),
+      migrateWorkspace({ version: 99, notes: [], folders: [] }),
     ).toThrow();
     expect(() => migrateWorkspace([null])).toThrow();
     expect(() =>

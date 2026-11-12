@@ -9,6 +9,8 @@ Cuaderno de notas con cuentas y sincronización en la nube. Interfaz en español
 - **Vite** para desarrollo y producción.
 - **Tauri 2 + Rust** para la aplicación nativa.
 - **Tiptap 3 + ProseMirror**: encabezados, listas, tareas, citas, código, negrita, cursiva, subrayado e historial.
+- **Recharts 3** (MIT): gráficas de barras, líneas y sectores con datos propios.
+- **Univer Sheets 1.4.0** (núcleo Apache-2.0): hojas con fórmulas y pestañas, cargadas solo al abrir su editor. Sin paquetes Pro, conversión remota ni CDN.
 - **Tailwind CSS 4** mediante `@tailwindcss/vite`: toda la interfaz y el contenido de Tiptap usan utilidades Tailwind. `src/styles.css` solo importa Tailwind y define los tokens del tema.
 - **Iconoir React**: iconos SVG locales con tamaño y accesibilidad unificados en `src/components/icons.tsx`.
 - **PostgreSQL** para cuentas y cuadernos en la versión web; **IndexedDB** conserva el cuaderno local como respaldo/importación. Tauri continúa usando **SQLite** sin sincronización.
@@ -66,7 +68,7 @@ bun run desktop:build
 
 El empaquetado se hace en el sistema de destino. Los artefactos se generan en `src-tauri/target/release/bundle/`. Las firmas y certificados de distribución no están configurados.
 
-Tauri también permite Android e iOS. El punto de entrada móvil está preparado; para generar los proyectos nativos hacen falta sus SDK y ejecutar `bun run tauri android init` o `bun run tauri ios init` (iOS requiere macOS). La compilación nativa no se ha verificado en el entorno de creación, que no dispone de Rust.
+Tauri también permite Android e iOS. El punto de entrada móvil está preparado; para generar los proyectos nativos hacen falta sus SDK y ejecutar `bun run tauri android init` o `bun run tauri ios init` (iOS requiere macOS). La compilación nativa no se ha verificado en este entorno: hay Rust y WebView2, pero faltan Visual Studio Build Tools con MSVC y el SDK de Windows.
 
 ## Funciones
 
@@ -94,6 +96,21 @@ Tauri también permite Android e iOS. El punto de entrada móvil está preparado
 - `Ctrl/Cmd+K`: buscar; `Ctrl/Cmd+Alt+N`: nueva nota.
 - Atajos del editor: `Ctrl/Cmd+B`, `I`, `U`, `Z` y `Shift+Z`.
 
+## Gráficas y hojas de cálculo
+
+En la barra del editor, **Insertar (+)** → **Gráfica** o **Hoja de cálculo**. Se editan en un diálogo ampliado; **Aplicar** actualiza la nota y activa su guardado automático. **Cancelar** descarta el borrador (con confirmación si hay cambios). Cada bloque tiene **Editar** y **Eliminar** y puede copiarse entre notas. Deshacer/rehacer de la nota revierte aplicaciones completas; dentro de la hoja se utiliza el historial del motor.
+
+- Las gráficas admiten barras, líneas y sectores; su tabla de datos es independiente de las hojas. Máximo 500 filas y 8 series. Sectores requiere una serie con valores no negativos y alguno positivo. Se aceptan decimales con coma o punto, sin separadores de miles.
+- Cada hoja comienza con 100 filas, 26 columnas y `Hoja 1`. Admite más pestañas y las fórmulas del preset libre (por ejemplo `=SUM(A1:A3)`), sin garantizar equivalencia completa con Excel. La interfaz del motor está en español. La nota muestra una vista previa parcial de hasta 10 filas × 6 columnas de la pestaña activa.
+- Máximo 1 MiB de datos JSON por bloque y 5 MiB por cuaderno. Si una edición supera el límite, se conserva el borrador para reducirlo.
+- No incluye XLSX/CSV, colaboración ni gráficas enlazadas a hojas. Los snapshots de una versión distinta del motor se conservan, pero no se abren para edición con esta versión.
+- La copia JSON conserva los libros y gráficas editables. Exportar HTML crea un documento estático con SVG y tabla para gráficas y una tabla parcial para hojas; no incluye los snapshots editables ni scripts.
+- Univer tiene un bundle considerable, diferido hasta editar una hoja. No se ha ampliado la CSP de Tauri para permitir scripts externos o `unsafe-eval`.
+
+### Verificación de la integración
+
+Pruebas de tipos, suite Vitest y build de producción comprobados. También se verificaron en navegador (API simulada) los tres tipos de gráfica, fórmulas y recálculo al cambiar valores, varias pestañas, recarga, copiar/pegar entre notas con nuevos IDs, copias JSON, exportación SVG/HTML, tema oscuro, móvil y reintento tras un error de guardado. El upsert que protege v3 se probó con PostgreSQL real en un contenedor desechable, incluidas peticiones concurrentes. El editor de hojas se descarga solo al abrirlo; su chunk sigue siendo grande (~6,7 MB sin comprimir, ~1,8 MB gzip). La verificación nativa queda pendiente por los prerrequisitos de Windows indicados arriba.
+
 ## Persistencia y privacidad
 
 La web exige sesión y guarda un snapshot JSON del cuaderno en PostgreSQL, asociado exclusivamente al usuario autenticado. Las escrituras se serializan para evitar que una versión anterior reemplace una reciente. En el primer acceso sin cuaderno en la cuenta, se importa una sola vez el cuaderno previo de IndexedDB y se conserva la copia local. Tauri sigue guardando en `sqlite:ntbk.db` mediante la tabla `workspace`; la autenticación nativa todavía no está integrada.
@@ -102,7 +119,7 @@ La ventana de Tauri tiene `dragDropEnabled: false` para permitir el arrastre HTM
 
 La apariencia se guarda en el snapshot del cuaderno. `public/theme-init.js` aplica una caché mínima de la preferencia (`ntbk:theme` en localStorage) antes de cargar React para evitar un destello claro al abrir en oscuro; después, el dato del cuaderno es el que se aplica.
 
-El snapshot de versión 2 incluye notas y carpetas. Las notas del formato anterior se migran automáticamente a la raíz, conservando identificadores y contenido. El snapshot previo en IndexedDB se conserva como respaldo local. Los datos con formato incompatible o jerarquía inválida no se sobrescriben.
+El snapshot de versión 3 incluye notas, carpetas y bloques de gráficas/hojas serializados en el HTML de cada nota. Los cuadernos v2 y las notas del formato anterior se migran automáticamente, conservando identificadores y contenido (las notas antiguas quedan en la raíz). Desplegar el backend antes que el frontend: una escritura v2 no puede reemplazar atómicamente un cuaderno que ya sea v3; devuelve `409 workspace_upgrade_required`. Los clientes antiguos rechazan v3 al cargar para evitar que borren bloques desconocidos. El snapshot previo en IndexedDB se conserva como respaldo local. Los datos con formato incompatible o jerarquía inválida no se sobrescriben.
 
 Las cuentas web guardan sus notas en el servidor; el respaldo previo de IndexedDB y el cuaderno Tauri son independientes y no se sincronizan. La copia JSON de Ajustes permite exportar o importar el cuaderno activo. La exportación HTML permite conservar una copia legible de cada nota; la aplicación no vuelve a importarla. El servidor de desarrollo no equivale a una PWA instalable/offline.
 
