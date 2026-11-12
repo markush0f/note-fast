@@ -1,5 +1,8 @@
 import type { SVGProps } from "react";
 import {
+  ChatBubble as ChatBubbleIcon,
+  SendDiagonal as SendDiagonalIcon,
+  Sparks as SparksIcon,
   ArrowLeft as ArrowLeftIcon,
   Check as CheckIcon,
   Copy as CopyIcon,
@@ -75,6 +78,9 @@ function icon(Component: typeof ArrowLeftIcon) {
 }
 export type IconComponent = ReturnType<typeof icon>;
 
+export const ChatBubble = icon(ChatBubbleIcon);
+export const SendDiagonal = icon(SendDiagonalIcon);
+export const Sparks = icon(SparksIcon);
 export const ArrowLeft = icon(ArrowLeftIcon);
 export const Check = icon(CheckIcon);
 export const Copy = icon(CopyIcon);

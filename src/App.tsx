@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   ArrowLeft,
+  ChatBubble,
   SidebarCollapse,
   SidebarExpand,
   Check,
@@ -54,6 +55,7 @@ import FileExplorer from "./components/FileExplorer";
 import Dialog from "./components/Dialog";
 import SettingsDialog from "./components/SettingsDialog";
 import TrashDialog from "./components/TrashDialog";
+import ChatPanel from "./components/ChatPanel";
 import EditorErrorBoundary from "./components/EditorErrorBoundary";
 import { downloadWorkspace } from "./lib/backup";
 import { applyTheme, getInitialTheme } from "./lib/theme";
@@ -105,6 +107,7 @@ export default function App() {
   const [favorites, setFavorites] = useState(false);
   const [mobileEditor, setMobileEditor] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const actionsRef = useRef<HTMLDetailsElement>(null);
@@ -364,7 +367,7 @@ export default function App() {
     );
 
   return (
-    <div className={`app-shell h-dvh overflow-hidden ${sidebarVisible ? "sidebar-expanded" : "sidebar-collapsed"}`}>
+    <div className={`app-shell h-dvh overflow-hidden ${sidebarVisible ? "sidebar-expanded" : "sidebar-collapsed"} ${chatOpen ? "chat-open" : ""}`}>
       <aside
         className={`app-sidebar ${mobileEditor ? "hidden min-[651px]:flex" : "flex"} min-h-0 flex-col border-line bg-sidebar min-[651px]:border-r`}
         aria-label="Cuaderno"
@@ -448,6 +451,10 @@ export default function App() {
           onDeleteNotebook={book => setDeleteNotebookId(book.id)}
         />
         <div className="shrink-0 border-t border-line p-2.5">
+          <Button variant="menu" aria-expanded={chatOpen} aria-controls={chatOpen ? 'notebook-chat' : undefined} onClick={() => setChatOpen(value => !value)}>
+            <ChatBubble size={16} />
+            Asistente
+          </Button>
           <Button variant="menu" onClick={() => setTrashOpen(true)}>
             <Trash size={16} />
             Papelera
@@ -533,9 +540,20 @@ export default function App() {
             )}
           </div>
           {syncMessage && <span className="max-w-72 truncate text-[11px] text-danger" title={syncMessage} role="alert">{syncMessage}</span>}
+          <Button
+            variant="icon"
+            className="ml-auto"
+            aria-label={chatOpen ? 'Ocultar chat' : 'Mostrar chat'}
+            title={chatOpen ? 'Ocultar chat' : 'Mostrar chat'}
+            aria-expanded={chatOpen}
+            aria-controls={chatOpen ? 'notebook-chat' : undefined}
+            onClick={() => setChatOpen(value => !value)}
+          >
+            <ChatBubble size={18} />
+          </Button>
           {selected && (
             <details
-              className="relative ml-auto"
+              className="relative"
               ref={actionsRef}
               key={selected.id}
               onKeyDown={(event) => {
@@ -675,6 +693,12 @@ export default function App() {
           </div>
         )}
       </main>
+
+      <ChatPanel
+        open={chatOpen}
+        notebookName={notebooks.find(book => book.id === activeNotebookId)?.name}
+        onClose={() => setChatOpen(false)}
+      />
 
       {trashOpen && (
         <TrashDialog
