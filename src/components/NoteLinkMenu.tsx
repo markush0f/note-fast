@@ -42,12 +42,12 @@ export default function NoteLinkMenu({
   return createPortal(
     <div
       role="listbox"
-      aria-label="Notas para enlazar"
+      aria-label="Páginas para enlazar"
       className="fixed z-50 w-60 overflow-hidden rounded-xl border border-line bg-surface p-1 shadow-lg shadow-black/10"
       style={{ left: box.left, top: box.top }}
     >
       {notes.length === 0 ? (
-        <p className="px-2 py-2 text-xs text-muted">No hay notas con ese título</p>
+        <p className="px-2 py-2 text-xs text-muted">No hay páginas con ese título</p>
       ) : (
         notes.map((note, index) => (
           <button

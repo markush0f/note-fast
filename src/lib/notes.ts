@@ -73,6 +73,6 @@ export function welcomeNote(): Note {
     ...createNote(),
     title: "Un espacio para tus ideas",
     content:
-      "<p>Cada gran idea empieza con una pequeña nota. Este es tu lugar para darle forma.</p><h2>Menos ruido. Más claridad.</h2><p>Guarda lo que te inspira, organiza tus pensamientos o simplemente empieza a escribir. No tiene que ser perfecto.</p><blockquote><p>Escribir es una forma de pensar en voz baja.</p></blockquote><h2>Hazlo tuyo</h2><ul><li><p>Crea una nota con el botón <strong>Nueva nota</strong>.</p></li><li><p>Dale formato a tus ideas con la barra del editor.</p></li><li><p>Marca tus notas favoritas para encontrarlas rápido.</p></li></ul><p>Tus notas se guardan automáticamente en este dispositivo. Sin cuentas, sin distracciones. Solo tú y tus ideas.</p>",
+      "<p>Cada gran idea empieza con una pequeña nota. Este es tu lugar para darle forma.</p><h2>Menos ruido. Más claridad.</h2><p>Guarda lo que te inspira, organiza tus pensamientos o simplemente empieza a escribir. No tiene que ser perfecto.</p><blockquote><p>Escribir es una forma de pensar en voz baja.</p></blockquote><h2>Hazlo tuyo</h2><ul><li><p>Crea una nota con el botón <strong>Nueva página</strong>.</p></li><li><p>Dale formato a tus ideas con la barra del editor.</p></li><li><p>Marca tus páginas favoritas para encontrarlas rápido.</p></li></ul><p>Tu cuaderno se guarda automáticamente en este dispositivo. Sin cuentas, sin distracciones. Solo tú y tus ideas.</p>",
   };
 }

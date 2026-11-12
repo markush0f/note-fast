@@ -85,7 +85,7 @@ describe("single explorer selection", () => {
     }
     expect(
       container
-        .querySelector('[aria-label="Notas (raíz)"]')!
+        .querySelector('[aria-label="Cuaderno (raíz)"]')!
         .classList.contains("bg-transparent"),
     ).toBe(true);
     expect(
@@ -103,16 +103,16 @@ describe("single explorer selection", () => {
     expect(current()).toEqual(["Seleccionar carpeta Ideas"]);
     click("Seleccionar carpeta Proyectos");
     expect(current()).toEqual(["Seleccionar carpeta Proyectos"]);
-    click("Notas (raíz)");
-    expect(current()).toEqual(["Notas (raíz)"]);
+    click("Cuaderno (raíz)");
+    expect(current()).toEqual(["Cuaderno (raíz)"]);
     click("Abrir Plan");
     expect(current()).toEqual(["Abrir Plan"]);
   });
   it("does not select the root alongside a note in search results", () => {
     act(() => root.render(<Harness query="Plan" />));
     expect(current()).toEqual(["Abrir Plan"]);
-    click("Notas (raíz)");
-    expect(current()).toEqual(["Notas (raíz)"]);
+    click("Cuaderno (raíz)");
+    expect(current()).toEqual(["Cuaderno (raíz)"]);
     click("Abrir Plan");
     expect(current()).toEqual(["Abrir Plan"]);
   });

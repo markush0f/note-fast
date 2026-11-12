@@ -105,7 +105,7 @@ export default function FileExplorer(props: Props) {
           ]),
       );
       setAnnouncement(
-        `Nota movida a ${folders.find((folder) => folder.id === folderId)?.name ?? "Notas (raíz)"}.`,
+        `Nota movida a ${folders.find((folder) => folder.id === folderId)?.name ?? "Cuaderno (raíz)"}.`,
       );
       resetDrag();
     },
@@ -129,7 +129,7 @@ export default function FileExplorer(props: Props) {
           event.dataTransfer.effectAllowed = "move";
           setDraggedId(note.id);
           setAnnouncement(
-            "Suelta la nota sobre una carpeta o sobre Notas para moverla a la raíz.",
+            "Suelta la nota sobre una carpeta o sobre Cuaderno para moverla a la raíz.",
           );
         }}
         onDragEnd={resetDrag}
@@ -155,7 +155,7 @@ export default function FileExplorer(props: Props) {
         {showPath && (
           <span className="block truncate pl-5 text-[10px] leading-4 text-muted">
             {[
-              "Notas",
+              "Cuaderno",
               ...folderPath(folders, note.folderId).map(
                 (folder) => folder.name,
               ),
@@ -266,7 +266,7 @@ export default function FileExplorer(props: Props) {
                       onClick={() => props.onNewNote(folder.id)}
                     >
                       <Plus size={15} />
-                      Nueva nota
+                      Nueva página
                     </Button>
                     <Button
                       variant="menu"
@@ -324,12 +324,12 @@ export default function FileExplorer(props: Props) {
         {...dropHandlers(null)}
         data-drop-target={dropTarget === null ? "true" : undefined}
         className={`mb-1 flex w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs font-semibold text-secondary focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-strong ${dropTarget === null ? "bg-selection ring-1 ring-inset ring-strong" : "bg-transparent hover:bg-hover aria-[current=true]:bg-selection"}`}
-        aria-label="Notas (raíz)"
+        aria-label="Cuaderno (raíz)"
         aria-current={selection === null ? "true" : undefined}
         onClick={() => props.onSelectFolder(null)}
       >
         <FolderIcon size={17} strokeWidth={1.75} className="text-folder/80" />
-        Notas
+        Cuaderno
       </button>
       {filtering ? (
         <div key="results">
@@ -354,7 +354,7 @@ export default function FileExplorer(props: Props) {
       {!filtering && !notes.length && !folders.length && (
         <div className="px-3 py-9 text-center text-xs text-muted">
           <Button variant="text" onClick={() => props.onNewNote(null)}>
-            Crear nota
+            Crear página
           </Button>
         </div>
       )}

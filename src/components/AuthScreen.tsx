@@ -27,8 +27,8 @@ export default function AuthScreen({ onAuthenticated }: { onAuthenticated: () =>
 
   return <main className="grid min-h-dvh place-items-center bg-subtle p-5 text-ink">
     <form onSubmit={submit} className="w-full max-w-sm rounded-lg border border-line bg-surface p-7 shadow-sm">
-      <h1 className="mb-2 text-xl font-semibold">Notas</h1>
-      <p className="mb-6 text-sm text-muted">{register ? "Crea una cuenta para guardar tus notas de forma segura." : "Inicia sesión para acceder a tus notas."}</p>
+      <h1 className="mb-2 text-xl font-semibold">Cuaderno</h1>
+      <p className="mb-6 text-sm text-muted">{register ? "Crea una cuenta para guardar tu cuaderno de forma segura." : "Inicia sesión para acceder a tu cuaderno."}</p>
       {register && <label className="mb-4 block text-sm">Nombre<input required autoComplete="name" maxLength={120} value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full rounded border border-line bg-subtle px-3 py-2" /></label>}
       <label className="mb-4 block text-sm">Correo electrónico<input required type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 block w-full rounded border border-line bg-subtle px-3 py-2" /></label>
       <label className="mb-4 block text-sm">Contraseña<input required type="password" minLength={register ? 12 : undefined} maxLength={128} autoComplete={register ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 block w-full rounded border border-line bg-subtle px-3 py-2" /></label>

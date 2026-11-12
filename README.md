@@ -1,16 +1,17 @@
 # ntbk
 
-A note-taking app with rich-text editing, nested folders, and cloud sync for web accounts. The interface is currently in Spanish. The Tauri desktop app uses local storage and does not yet support accounts or sync.
+A digital notebook with rich-text pages, nested folders, and cloud sync for web accounts. The interface is currently in Spanish. The Tauri desktop app stores its notebook locally and does not yet support accounts or sync.
 
 ## Features
 
-- Rich-text notes with formatting, task lists, code blocks, and links between notes.
+- Rich-text pages with formatting, task lists, code blocks, and links between pages.
 - Nested folders, drag-and-drop organization, favorites, and full-text search.
 - Embedded charts and spreadsheets with formulas and multiple sheets.
 - Inline images and downloadable PDF attachments (10 MiB per file, 100 MiB per account).
-- Installable web app with offline editing and automatic sync; conflicting note edits keep both versions.
+- Installable web app with offline editing and automatic sync; conflicting page edits keep both versions.
 - Autosave, a 30-day trash, and light/dark themes.
-- JSON backup and restore, plus per-note HTML and PDF export (via the browser print dialog).
+- A customizable notebook cover with a title, description, icon, favorites, recently edited pages, and folder shortcuts.
+- Notebook backup and restore, plus per-page HTML and PDF export (via the browser print dialog).
 
 ## Quick start
 
@@ -71,6 +72,6 @@ Build on the target platform. Bundles are generated in `src-tauri/target/release
 
 React 19, TypeScript, Vite, Tailwind CSS 4, Tiptap, Recharts, and Univer Sheets. The backend uses Bun, Hono, Better Auth, and PostgreSQL; the desktop app uses Tauri 2 and SQLite.
 
-Web notebooks and attachments are stored per account in PostgreSQL, with an account-scoped IndexedDB copy for offline use. An existing local IndexedDB notebook is imported when an account first opens without a notebook, keeping the local copy as a backup. Desktop notebooks remain separate and do not sync with web accounts.
+Web notebook pages and attachments are stored per account in PostgreSQL, with an account-scoped IndexedDB copy for offline use. An existing local notebook is imported when an account first opens without one, keeping the local copy as a backup. Desktop notebooks remain separate and do not sync with web accounts.
 
 Spreadsheets do not support XLSX/CSV import or export, collaboration, or chart-linked data. JSON backups include attachments and editable charts and sheets; HTML exports are static.

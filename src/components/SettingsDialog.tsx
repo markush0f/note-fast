@@ -63,7 +63,7 @@ export default function SettingsDialog({
       <section className="mt-6 text-xs text-muted" aria-label="Acceso sin conexión">
         <h2 className="mb-2 font-medium text-secondary">Acceso sin conexión</h2>
         <p>{!import.meta.env.PROD ? 'La instalación y apertura sin internet requieren la versión de producción; en desarrollo puedes seguir editando con la pestaña abierta.' : offlineReady ? 'Aplicación preparada para abrirse sin internet. Puedes instalarla desde el menú del navegador (Instalar aplicación / Añadir a inicio).' : 'Descargando la aplicación para abrirla sin internet. Mantén esta pestaña abierta hasta que termine.'}</p>
-        <p className="mt-2">Espera al estado «Sincronizado» para disponer también de los adjuntos descargados. Los cambios sin conexión se guardan en este navegador y se sincronizan al reconectar; las ediciones incompatibles crean una nota «(conflicto)».</p>
+        <p className="mt-2">Espera al estado «Sincronizado» para disponer también de los adjuntos descargados. Los cambios sin conexión se guardan en este navegador y se sincronizan al reconectar; las ediciones incompatibles conservan ambas páginas.</p>
         <p className="mt-2">No borres los datos del navegador si tienes cambios pendientes. En dispositivos compartidos, cierra sesión; las copias locales no están cifradas.</p>
       </section>
       <fieldset className="mt-6">
@@ -71,7 +71,7 @@ export default function SettingsDialog({
           Copia de seguridad
         </legend>
         <p className="mb-3 text-xs text-muted">
-          Un archivo JSON con notas, imágenes, adjuntos, carpetas, papelera y apariencia.
+          Un archivo JSON con tu cuaderno, imágenes, adjuntos, carpetas, papelera y apariencia.
           Importarlo sustituye el cuaderno de la cuenta y se sincroniza al conectar.
         </p>
         <div className="flex flex-wrap gap-2">
@@ -115,7 +115,7 @@ export default function SettingsDialog({
           <div className="mt-3 rounded-md border border-line bg-subtle p-3">
             <p className="text-xs text-secondary">
               ¿Sustituir este cuaderno por la copia ({pending.notes.length}{" "}
-              notas)?
+              páginas)?
             </p>
             <div className="mt-3 flex justify-end gap-2">
               <Button onClick={() => setPending(null)}>Cancelar</Button>
