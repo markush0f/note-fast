@@ -13,6 +13,7 @@ describe('configuración del backend', () => {
     const config = loadConfig({ ...env, APP_ORIGINS: `${env.APP_ORIGINS},${env.APP_ORIGINS}` })
     expect(config.port).toBe(3000)
     expect(config.host).toBe('127.0.0.1')
+    expect(config.ollamaBaseUrl).toBe('http://127.0.0.1:11434')
     expect(config.origins).toEqual([env.APP_ORIGINS])
   })
 
@@ -22,6 +23,8 @@ describe('configuración del backend', () => {
 
   it.each([
     { PORT: '0' }, { PORT: '65536' }, { PORT: '3.5' },
+    { OLLAMA_BASE_URL: 'file:///tmp/ollama' }, { OLLAMA_BASE_URL: 'http://localhost:11434/api' },
+    { OLLAMA_BASE_URL: 'http://user:secret@localhost:11434' },
     { DATABASE_URL: 'sqlite:test.db' }, { BETTER_AUTH_SECRET: 'short' },
     { APP_ORIGINS: '*' }, { APP_ORIGINS: 'https://app.test/path' },
     { BETTER_AUTH_URL: 'https://user:password@app.test' },
@@ -29,6 +32,10 @@ describe('configuración del backend', () => {
     { NODE_ENV: 'production', BETTER_AUTH_URL: 'https://api.test' },
   ])('rechaza configuración insegura: %j', (change) => {
     expect(() => loadConfig({ ...env, ...change })).toThrow()
+  })
+
+  it('permite configurar el origen de Ollama desde el servidor', () => {
+    expect(loadConfig({ ...env, OLLAMA_BASE_URL: 'http://host.docker.internal:11434/' }).ollamaBaseUrl).toBe('http://host.docker.internal:11434')
   })
 
   it('acepta producción solo con HTTPS', () => {

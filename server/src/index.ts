@@ -24,6 +24,8 @@ const app = createApp({
 const server = Bun.serve({
   hostname: config.host,
   port: config.port,
+  // Local model loading and generation may take several minutes.
+  idleTimeout: 210,
   fetch: (request, server) => app.fetch(request, {
     clientIp: server.requestIP(request)?.address,
   }),

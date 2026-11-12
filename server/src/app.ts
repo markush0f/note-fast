@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { fileRoutes } from './files'
+import { ollamaRoutes } from './ollama'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
 import { bodyLimit } from 'hono/body-limit'
@@ -11,21 +12,22 @@ function isWorkspace(value: unknown): value is { version: 2 | 3 | 4; notes: unkn
   if (!value || typeof value !== 'object') return false
   const workspace = value as Record<string, unknown>
   if (![2, 3, 4].includes(Number(workspace.version)) || !Array.isArray(workspace.notes)) return false
-  if (workspace.version === 4 ? !Array.isArray(workspace.notebooks) : !Array.isArray(workspace.folders)) return false
-  if (workspace.notes.length > 20_000 || (workspace.folders?.length ?? workspace.notebooks?.length ?? 0) > 5_000) return false
+  const containers = workspace.version === 4 ? workspace.notebooks : workspace.folders
+  if (!Array.isArray(containers)) return false
+  if (workspace.notes.length > 20_000 || containers.length > 5_000) return false
   return workspace.notes.every((note) => note && typeof note === 'object'
     && typeof note.id === 'string' && typeof note.title === 'string' && typeof note.content === 'string'
     && typeof note.favorite === 'boolean' && typeof note.createdAt === 'string' && typeof note.updatedAt === 'string')
     && (workspace.version === 4
-      ? workspace.notebooks!.every((book) => book && typeof book === 'object' && typeof book.id === 'string' && typeof book.name === 'string' && typeof book.description === 'string')
-      : workspace.folders!.every((folder) => folder && typeof folder === 'object' && typeof folder.id === 'string' && typeof folder.name === 'string' && (folder.parentId === null || typeof folder.parentId === 'string')))
+      ? containers.every((book) => book && typeof book === 'object' && typeof book.id === 'string' && typeof book.name === 'string' && typeof book.description === 'string')
+      : containers.every((folder) => folder && typeof folder === 'object' && typeof folder.id === 'string' && typeof folder.name === 'string' && (folder.parentId === null || typeof folder.parentId === 'string')))
 }
 
 interface Dependencies {
   auth: Pick<Auth, 'handler' | 'api'>
   checkDatabase: () => Promise<void>
   database: Pick<Pool, 'query' | 'connect'>
-  config: Pick<Config, 'origins' | 'authUrl'>
+  config: Pick<Config, 'origins' | 'authUrl'> & Partial<Pick<Config, 'ollamaBaseUrl'>>
 }
 
 export function createApp({ auth, checkDatabase, config, database }: Dependencies) {
@@ -96,6 +98,7 @@ export function createApp({ auth, checkDatabase, config, database }: Dependencie
     await next()
   })
   fileRoutes(app, database, authenticatedUser)
+  ollamaRoutes(app, config.ollamaBaseUrl ?? 'http://127.0.0.1:11434', authenticatedUser)
 
   app.get('/api/workspace', async (c) => {
     const user = await authenticatedUser(c.req.raw)

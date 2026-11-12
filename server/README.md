@@ -64,6 +64,7 @@ El servidor escucha en `http://127.0.0.1:3000`. Bun carga `server/.env` porque l
 | `BETTER_AUTH_SECRET` | Secreto aleatorio de al menos 32 caracteres; mantener estable entre reinicios. |
 | `BETTER_AUTH_URL` | Origen público del backend, sin ruta. |
 | `APP_ORIGINS` | Orígenes de frontend permitidos, separados por comas; nunca `*`. |
+| `OLLAMA_BASE_URL` | Origen de Ollama sin `/api`; por defecto `http://127.0.0.1:11434`, o `http://host.docker.internal:11434` en Compose. Ver [chat local](../docs/ollama.md). |
 | `HOST` / `PORT` | Por defecto `127.0.0.1:3000`; en contenedores usar `HOST=0.0.0.0`. |
 | `NODE_ENV` | `production` exige HTTPS tanto en backend como en los orígenes del frontend y activa cookies Secure. |
 
@@ -84,8 +85,10 @@ Usa el mismo nombre de host en frontend y backend: no mezclar `localhost` con `1
 | PUT | `/api/workspace` | Cliente antiguo: máximo 5 MiB; rechaza escrituras tras activar sincronización con revisiones. |
 | GET / PUT | `/api/sync` | Cuaderno con revisión; PUT requiere `If-Match`, devuelve 409 si cambió. |
 | GET / PUT | `/api/files/:id` | Adjuntos privados, máximo 10 MiB por archivo y 100 MiB por cuenta. |
+| GET | `/api/ai/models` | Lista de modelos instalados en Ollama. |
+| POST | `/api/ai/chat` | Chat de texto con Ollama: `{ model, messages: [{ role, content }] }`. Solo conversación, sin acceso a las páginas. |
 
-Las rutas de sincronización y archivos requieren `X-Notebook-User` coincidente con la sesión validada. Consulta [modo sin conexión y adjuntos](../docs/offline.md) para despliegue, límites y conservación de archivos.
+Las rutas de sincronización, archivos e IA requieren `X-Notebook-User` coincidente con la sesión validada. Consulta [modo sin conexión y adjuntos](../docs/offline.md) para despliegue, límites y conservación de archivos.
 
 Better Auth gestiona sus rutas bajo `/api/auth/*`, el hash de contraseñas y las cookies de sesión HttpOnly. Contraseñas entre 12 y 128 caracteres; sesiones de siete días. `/api/me` no admite elegir usuario mediante parámetros.
 

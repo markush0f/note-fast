@@ -6,6 +6,7 @@ export interface Config {
   authUrl: string
   origins: string[]
   production: boolean
+  ollamaBaseUrl: string
 }
 
 function required(env: Record<string, string | undefined>, name: string): string {
@@ -38,5 +39,6 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
   }
   const authUrl = origin(required(env, 'BETTER_AUTH_URL'), 'BETTER_AUTH_URL', production)
   const origins = required(env, 'APP_ORIGINS').split(',').map((value) => origin(value.trim(), 'APP_ORIGINS', production))
-  return { port, host: env.HOST?.trim() || '127.0.0.1', databaseUrl, authSecret, authUrl, origins: [...new Set(origins)], production }
+  const ollamaBaseUrl = origin(env.OLLAMA_BASE_URL?.trim() || 'http://127.0.0.1:11434', 'OLLAMA_BASE_URL', false)
+  return { port, host: env.HOST?.trim() || '127.0.0.1', databaseUrl, authSecret, authUrl, origins: [...new Set(origins)], production, ollamaBaseUrl }
 }

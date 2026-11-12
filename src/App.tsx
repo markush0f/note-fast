@@ -695,8 +695,9 @@ export default function App() {
       </main>
 
       <ChatPanel
+        key={user?.id ?? 'signed-out'}
+        userId={user?.id ?? ''}
         open={chatOpen}
-        notebookName={notebooks.find(book => book.id === activeNotebookId)?.name}
         onClose={() => setChatOpen(false)}
       />
 
