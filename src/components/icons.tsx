@@ -2,6 +2,7 @@ import type { SVGProps } from "react";
 import {
   ArrowLeft as ArrowLeftIcon,
   Check as CheckIcon,
+  Copy as CopyIcon,
   WarningCircle as WarningCircleIcon,
   Download as DownloadIcon,
   MoreHoriz as MoreHorizIcon,
@@ -76,6 +77,7 @@ export type IconComponent = ReturnType<typeof icon>;
 
 export const ArrowLeft = icon(ArrowLeftIcon);
 export const Check = icon(CheckIcon);
+export const Copy = icon(CopyIcon);
 export const WarningCircle = icon(WarningCircleIcon);
 export const Download = icon(DownloadIcon);
 export const MoreHoriz = icon(MoreHorizIcon);

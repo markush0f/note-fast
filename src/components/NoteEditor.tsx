@@ -107,9 +107,19 @@ export default function NoteEditor({
         "aria-multiline": "true",
       },
       handlePaste: (_view, event) => {
-        const files = [...(event.clipboardData?.files ?? [])];
-        if (!files.length) return false;
-        event.preventDefault(); attachRef.current(files); return true;
+        const clipboard = event.clipboardData;
+        const files = [...(clipboard?.files ?? [])];
+        // Some browsers expose pasted screenshots only as image/* clipboard items,
+        // with an empty FileList. Prefer the item representation in that case.
+        const images = [...(clipboard?.items ?? [])]
+          .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+          .map(item => item.getAsFile())
+          .filter((file): file is File => Boolean(file));
+        const attachments = files.length ? files : images;
+        if (!attachments.length) return false;
+        event.preventDefault();
+        attachRef.current(attachments);
+        return true;
       },
       handleDrop: (view, event, _slice, moved) => {
         const files = [...(event.dataTransfer?.files ?? [])];

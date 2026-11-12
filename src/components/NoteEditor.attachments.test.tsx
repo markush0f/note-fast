@@ -12,6 +12,36 @@ vi.mock('../lib/attachments', () => ({
   storeAttachment: async () => ({ id: 'new-file', name: 'new.pdf', type: 'application/pdf', size: 10 }),
 }));
 
+it('pastes clipboard images exposed through DataTransferItemList', async () => {
+  (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+  const host = document.createElement('div'); document.body.append(host);
+  const root = createRoot(host);
+  const onChange = vi.fn();
+  const note = createNote();
+  try {
+    await act(async () => root.render(createElement(NoteEditor, {
+      note, onChange, onTitleChange: vi.fn(), toolbarPosition: 'top-left', onToolbarPositionChange: vi.fn(), notes: [note], onOpenNote: vi.fn(), checkBlockContent: () => null,
+    })));
+    const image = new File(['pixels'], 'clipboard.png', { type: 'image/png' });
+    const event = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'clipboardData', { value: {
+      files: [],
+      types: [],
+      getData: () => '',
+      items: [{ kind: 'file', type: 'image/png', getAsFile: () => image }],
+    } });
+    await act(async () => {
+      host.querySelector('.tiptap')!.dispatchEvent(event);
+      await new Promise(resolve => setTimeout(resolve, 20));
+    });
+    expect(event.defaultPrevented).toBe(true);
+    expect(onChange.mock.calls.at(-1)?.[0]).toContain('new-file');
+  } finally {
+    await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals();
+  }
+});
+
 it('inserts an attachment without replacing the currently selected image and renders synced content', async () => {
   (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });

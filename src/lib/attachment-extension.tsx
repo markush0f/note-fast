@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react';
 import { Node } from '@tiptap/core';
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from '@tiptap/react';
 import { loadAttachment, attachmentAccount, type Attachment } from './attachments';
-import { Download, MediaImage, Page, Trash } from '../components/icons';
+import { Check, Copy, Download, Page, Trash } from '../components/icons';
 
 function AttachmentView({ node, deleteNode, selected }: NodeViewProps) {
   const file = node.attrs as Attachment;
   const [url, setURL] = useState('');
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const isImage = file.type.startsWith('image/');
   const owner = attachmentAccount();
   useEffect(() => {
     let active = true;
@@ -20,15 +22,36 @@ function AttachmentView({ node, deleteNode, selected }: NodeViewProps) {
     }).catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudo abrir el adjunto.'); });
     return () => { active = false; if (objectURL) URL.revokeObjectURL(objectURL); };
   }, [file.id, owner, retry]);
-  return <NodeViewWrapper contentEditable={false} className={`my-4 rounded-lg border bg-surface p-3 ${selected ? 'border-strong' : 'border-line'}`}>
-    {file.type.startsWith('image/') && url && <img src={url} alt={file.name} className="mx-auto mb-3 max-h-150 max-w-full rounded object-contain" />}
-    <div className="flex items-center gap-2 text-sm">
-      {file.type.startsWith('image/') ? <MediaImage size={18} /> : <Page size={18} />}
-      <span className="min-w-0 flex-1 break-words">{file.name} <span className="text-muted">({file.size < 1024 ? `${file.size} B` : file.size < 1024 * 1024 ? `${(file.size / 1024).toFixed(1)} KiB` : `${(file.size / (1024 * 1024)).toFixed(1)} MiB`})</span></span>
-      {url && <a href={url} download={file.name} aria-label={`Descargar ${file.name}`} className="rounded p-2 hover:bg-hover"><Download size={16} /></a>}
-      <button type="button" aria-label={`Eliminar adjunto ${file.name}`} className="rounded p-2 hover:bg-hover" onClick={() => { if (window.confirm('¿Quitar este adjunto de la nota?')) deleteNode(); }}><Trash size={16} /></button>
+  const copyImage = async () => {
+    try {
+      if (!url || !navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('Copia de imágenes no disponible en este navegador.');
+      const blob = await loadAttachment(file.id, owner);
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo copiar la imagen.');
+    }
+  };
+  const remove = () => { if (window.confirm('¿Quitar este adjunto de la nota?')) deleteNode(); };
+  const actions = <div className="absolute top-2 right-2 flex gap-1 rounded-lg bg-surface/95 p-1 shadow-md ring-1 ring-black/10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+    {isImage && <button type="button" aria-label={`Copiar ${file.name}`} title="Copiar imagen" className="rounded p-2 text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-strong" onClick={() => void copyImage()}>{copied ? <Check size={16} /> : <Copy size={16} />}</button>}
+    {url && <a href={url} download={file.name} aria-label={`Descargar ${file.name}`} title="Descargar" className="rounded p-2 text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-strong"><Download size={16} /></a>}
+    <button type="button" aria-label={`Eliminar adjunto ${file.name}`} title="Eliminar" className="rounded p-2 text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-strong" onClick={remove}><Trash size={16} /></button>
+  </div>;
+  if (isImage) return <NodeViewWrapper contentEditable={false} className="my-4">
+    <figure className={`group relative m-0 w-fit max-w-full ${selected ? 'outline-2 outline-offset-2 outline-strong' : ''}`}>
+      {url ? <img src={url} alt={file.name} className="block max-h-150 max-w-full object-contain" /> : <p role={error ? 'alert' : 'status'} className="text-sm text-muted">{error || 'Cargando imagen…'}</p>}
+      {url && actions}
+      {error && <p role="alert" className="mt-1 text-xs text-danger">{error} <button type="button" className="underline" onClick={() => setRetry(value => value + 1)}>Reintentar</button></p>}
+    </figure>
+  </NodeViewWrapper>;
+  return <NodeViewWrapper contentEditable={false} className="my-4">
+    <div className={`group relative flex items-center gap-2 ${selected ? 'rounded outline-2 outline-strong' : ''}`}>
+      <Page size={18} /><span className="flex-1 text-sm">{file.name}</span>
+      {actions}
+      {error && <p role="alert" className="text-xs text-danger">{error} <button type="button" className="underline" onClick={() => setRetry(value => value + 1)}>Reintentar</button></p>}
     </div>
-    {error ? <p role="alert" className="mt-2 text-sm text-muted">{error} <button type="button" className="underline" onClick={() => setRetry(value => value + 1)}>Reintentar</button></p> : !url && <p role="status" className="mt-2 text-sm text-muted">Cargando adjunto…</p>}
   </NodeViewWrapper>;
 }
 
